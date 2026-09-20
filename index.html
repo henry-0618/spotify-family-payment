@@ -1,210 +1,334 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>試算表狀態管理系統</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
-    .container { max-width: 900px; margin: 0 auto; background: #ffffff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #edf2f7; padding-bottom: 15px; margin-bottom: 20px; }
-    h2 { margin: 0; color: #2d3748; }
-    
-    /* 按鈕樣式 */
-    .btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-    .btn-primary { background-color: #3182ce; color: white; }
-    .btn-primary:hover { background-color: #2b6cb0; }
-    .btn-admin { background-color: #38a169; color: white; }
-    .btn-admin:hover { background-color: #2f855a; }
-    .btn-save { background-color: #d69e2e; color: white; padding: 6px 12px; font-size: 0.85em; }
-
-    /* 管理員列 */
-    .admin-bar { background-color: #ebf8ff; border: 1px solid #bee3f8; padding: 12px 15px; border-radius: 6px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
-    .admin-bar input { padding: 6px 12px; border: 1px solid #cbd5e0; border-radius: 4px; outline: none; }
-    .admin-status { font-size: 0.9em; font-weight: bold; margin-left: auto; }
-
-    /* 資料表格 */
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border-bottom: 1px solid #e2e8f0; padding: 12px 15px; text-align: left; }
-    th { background-color: #f7fafc; color: #4a5568; font-weight: 600; }
-    select { padding: 5px 8px; border-radius: 4px; border: 1px solid #cbd5e0; }
-    
-    .badge { padding: 4px 8px; border-radius: 12px; font-size: 0.85em; font-weight: bold; display: inline-block; }
-    .status-pending { background-color: #feebc8; color: #7b341e; }
-    .status-doing { background-color: #ebf8ff; color: #2b6cb0; }
-    .status-done { background-color: #c6f6d5; color: #22543d; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Family 費用繳交紀錄表</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .badge-paid { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .badge-unpaid { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .badge-none { background-color: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+    </style>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
-<div class="container">
-  <header>
-    <h2>📋 試算表資料管理系統</h2>
-    <button id="toggleAdminBtn" class="btn btn-admin" onclick="toggleAdminPanel()">管理員登入</button>
-  </header>
+    <!-- Header & Nav -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-emerald-500 text-slate-900 p-2 rounded-xl font-bold">
+                    <i class="fa-brands fa-spotify text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold leading-tight">Spotify Family 繳費紀錄</h1>
+                    <p class="text-xs text-slate-400">成員繳費狀態追蹤面板</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- Sync Status Badge -->
+                <span id="syncStatus" class="inline-flex items-center text-xs bg-slate-800 text-slate-300 px-3 py-1.5 rounded-full border border-slate-700">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse"></span> 已同步試算表
+                </span>
+                
+                <!-- Admin Status / Login Toggle -->
+                <button id="adminBtn" onclick="toggleAdminModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-all flex items-center shadow-sm">
+                    <i class="fa-solid fa-lock mr-2" id="adminIcon"></i>
+                    <span id="adminBtnText">管理員登入</span>
+                </button>
+            </div>
+        </div>
+    </header>
 
-  <!-- 管理員密碼驗證區 -->
-  <div id="adminPanel" class="admin-bar" style="display: none;">
-    <span>🔒 登入管理員權限：</span>
-    <input type="password" id="adminPasswordInput" placeholder="請輸入管理員密碼">
-    <button class="btn btn-primary" onclick="verifyAdmin()">驗證</button>
-    <span id="adminStatusText" class="admin-status" style="color: #e53e3e;">尚未登入</span>
-  </div>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
 
-  <!-- 資料展示表格 -->
-  <table>
-    <thead>
-      <tr>
-        <th style="width: 10%;">列號</th>
-        <th style="width: 50%;">資料內容</th>
-        <th style="width: 20%;">目前狀態</th>
-        <th style="width: 20%;">操作欄位</th>
-      </tr>
-    </thead>
-    <tbody id="dataTable">
-      <tr><td colspan="4" style="text-align: center;">資料載入中...</td></tr>
-    </tbody>
-  </table>
-</div>
+        <!-- Mode Indicator Banner -->
+        <div class="mb-6 flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <div class="flex items-center gap-2">
+                <span id="roleBadge" class="bg-slate-100 text-slate-600 text-xs font-semibold px-2.5 py-1 rounded-md border border-slate-200">訪客模式（唯讀）</span>
+                <span class="text-xs text-slate-500" id="roleDesc">登入管理員後點擊儲存格即可修改繳費狀態。</span>
+            </div>
+            <button onclick="fetchSheetData()" class="text-xs text-emerald-600 font-medium hover:underline flex items-center">
+                <i class="fa-solid fa-rotate mr-1"></i> 重新整理資料
+            </button>
+        </div>
 
-<script>
-  // 固定綁定 API 網址
-  const API_URL = "https://script.google.com/macros/s/AKfycbx0-ikyOtM7oHhVhTS0YmYJirM8En8nFIrqywq3vHIPkLI9mswvV-qCeMlWNpgVGv84/exec";
-  
-  let isAdminVerified = false;
-  let currentAdminPassword = "";
-  let cachedData = [];
+        <!-- Matrix Table Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h2 class="font-bold text-slate-800 flex items-center text-base">
+                    <i class="fa-solid fa-table-cells mr-2 text-emerald-600"></i> 繳費紀錄矩陣表
+                </h2>
+                <div class="text-xs text-slate-500">
+                    點擊欄位快速標記日期
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr id="tableHeader" class="bg-slate-100/70 border-b border-slate-200 text-slate-600 font-semibold">
+                            <!-- Headers dynamically generated -->
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100">
+                        <!-- Rows dynamically generated -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
 
-  // 網頁載入時自動拉取資料
-  document.addEventListener("DOMContentLoaded", loadData);
+    <!-- Admin Login Modal -->
+    <div id="adminModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl border border-slate-100">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg text-slate-800"><i class="fa-solid fa-shield-halved text-emerald-600 mr-2"></i>管理員身份驗證</h3>
+                <button onclick="toggleAdminModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <p class="text-xs text-slate-500 mb-4">請輸入 Google Apps Script 中設定的管理員密碼以啟用編輯與同步權限。</p>
+            <input type="password" id="adminPasswordInput" placeholder="請輸入密碼 (預設 admin123)" class="w-full text-sm px-3 py-2.5 border rounded-lg mb-4 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <div class="flex gap-2">
+                <button onclick="toggleAdminModal()" class="w-1/2 text-slate-600 border border-slate-200 py-2 rounded-lg text-xs font-medium hover:bg-slate-50">取消</button>
+                <button onclick="verifyAdmin()" class="w-1/2 bg-emerald-600 text-white py-2 rounded-lg text-xs font-medium hover:bg-emerald-700">登入管理模式</button>
+            </div>
+        </div>
+    </div>
 
-  // 1. 從 API 獲取資料 (GET)
-  async function loadData() {
-    try {
-      const response = await fetch(API_URL);
-      const result = await response.json();
+    <!-- Edit Status Modal -->
+    <div id="editModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-slate-100">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h3 id="editModalTitle" class="font-bold text-slate-800 text-base">更新繳費狀態</h3>
+                    <p id="editModalSubtitle" class="text-xs text-slate-500"></p>
+                </div>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
 
-      if (result.status === "success") {
-        cachedData = result.data;
-        renderTable(cachedData);
-      } else {
-        alert("資料載入失敗：" + result.message);
-      }
-    } catch (error) {
-      console.error(error);
-      alert("無法連線至 Web App API，請確認部署權限設定為「所有人」。");
-    }
-  }
+            <!-- Quick Action Buttons -->
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <button onclick="setQuickStatus('paidToday')" class="p-3 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-xl text-left transition-all">
+                    <div class="text-xs font-bold text-emerald-800 mb-1"><i class="fa-solid fa-check-circle text-emerald-600 mr-1"></i> 已繳交 (標記今天)</div>
+                    <div class="text-[10px] text-emerald-600" id="todayLabel">自動產生：已繳交 09/20</div>
+                </button>
+                <button onclick="setQuickStatus('paidTransfer')" class="p-3 bg-teal-50 border border-teal-200 hover:bg-teal-100 rounded-xl text-left transition-all">
+                    <div class="text-xs font-bold text-teal-800 mb-1"><i class="fa-solid fa-money-bill-transfer text-teal-600 mr-1"></i> 已繳交 (轉帳)</div>
+                    <div class="text-[10px] text-teal-600">填入：已繳交(轉帳)</div>
+                </button>
+                <button onclick="setQuickStatus('unpaid')" class="p-3 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-xl text-left transition-all">
+                    <div class="text-xs font-bold text-rose-800 mb-1"><i class="fa-solid fa-triangle-exclamation text-rose-600 mr-1"></i> 缺 / 未繳交</div>
+                    <div class="text-[10px] text-rose-600">標記為：缺</div>
+                </button>
+                <button onclick="setQuickStatus('none')" class="p-3 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-xl text-left transition-all">
+                    <div class="text-xs font-bold text-slate-700 mb-1"><i class="fa-solid fa-minus-circle text-slate-400 mr-1"></i> 未加入 / X</div>
+                    <div class="text-[10px] text-slate-500">填入：X</div>
+                </button>
+            </div>
 
-  // 2. 渲染表格 UI
-  function renderTable(data) {
-    const tbody = document.getElementById("dataTable");
-    tbody.innerHTML = "";
+            <!-- Custom Input Field -->
+            <div class="mb-4">
+                <label class="block text-xs font-medium text-slate-700 mb-1">或自訂註記狀態</label>
+                <input type="text" id="customStatusInput" class="w-full text-xs p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" placeholder="例如：已繳交09/25">
+            </div>
 
-    if (!data || data.length <= 1) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">目前沒有任何資料</td></tr>';
-      return;
-    }
+            <div class="flex gap-2">
+                <button onclick="closeEditModal()" class="w-1/3 text-slate-600 border border-slate-200 py-2 rounded-lg text-xs font-medium hover:bg-slate-50">取消</button>
+                <button onclick="applyCustomStatus()" class="w-2/3 bg-emerald-600 text-white py-2 rounded-lg text-xs font-medium hover:bg-emerald-700">更新並儲存</button>
+            </div>
+        </div>
+    </div>
 
-    // 假設第 0 列 (row 1) 是表頭，從第 1 列開始渲染
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const rowIndex = i + 1; // 試算表的真實列號 (Row Number)
-      const content = row[0] || "—";
-      const status = row[1] || "待處理";
+    <script>
+        // 直接鎖定 Google 試算表 API 網址
+        const gasUrl = "https://script.google.com/macros/s/AKfycbx0-ikyOtM7oHhVhTS0YmYJirM8En8nFIrqywq3vHIPkLI9mswvV-qCeMlWNpgVGv84/exec";
 
-      const tr = document.createElement("tr");
+        // 預設備用資料 (若網路連線失敗時顯示)
+        let matrixData = [
+            ["姓名", "e-mail", "2026/03", "2026/04", "2026/05", "2026/06", "2026/07", "2026/08", "2026/09", "2026/10"],
+            ["筱玟", "joannalee197509@gmail.com", "已繳交", "已繳交", "已繳交", "已繳交(轉帳)", "已繳交09/16", "已繳交09/16", "已繳交09/16", ""],
+            ["松澤", "jason1041387@gmail.com", "已繳交", "已繳交", "已繳交", "已繳交", "已繳交", "已繳交", "已繳交09/11", ""],
+            ["岑菲", "zhangcenfei9@gmail.com", "已繳交", "已繳交", "已繳交", "已繳交", "已繳交", "已繳交", "缺", ""],
+            ["祐丞", "", "X", "X", "X", "X", "X", "", "已繳交09/14", ""],
+            ["宗佑", "zuuulin@gmail.com", "已繳交", "已繳交", "已繳交", "", "", "X", "X", ""],
+            ["育陞", "leo2018lin@gmail.com", "已繳交", "已繳交", "已繳交", "已繳交", "已繳交", "已繳交", "缺", ""]
+        ];
 
-      // 操作欄位控制：只有管理員驗證成功才會顯示可修改的下拉選單
-      let actionControl = "";
-      if (isAdminVerified) {
-        actionControl = `
-          <select id="select_${rowIndex}">
-            <option value="待處理" ${status === '待處理' ? 'selected' : ''}>待處理</option>
-            <option value="進行中" ${status === '進行中' ? 'selected' : ''}>進行中</option>
-            <option value="已完成" ${status === '已完成' ? 'selected' : ''}>已完成</option>
-          </select>
-          <button class="btn btn-save" onclick="updateStatus(${rowIndex})">儲存</button>
-        `;
-      } else {
-        actionControl = `<span style="color:#a0aec0; font-size:0.85em;">僅供檢視</span>`;
-      }
+        let isAdmin = false;
+        let adminPassword = "";
+        let currentEditingCell = null; // { rowIndex, colIndex }
 
-      tr.innerHTML = `
-        <td><strong>#${rowIndex}</strong></td>
-        <td>${content}</td>
-        <td><span class="badge ${getStatusClass(status)}">${status}</span></td>
-        <td>${actionControl}</td>
-      `;
-      tbody.appendChild(tr);
-    }
-  }
+        window.onload = function() {
+            fetchSheetData();
+            updateTodayLabel();
+        };
 
-  // 3. 切換管理員登入區塊
-  function toggleAdminPanel() {
-    const panel = document.getElementById("adminPanel");
-    panel.style.display = panel.style.display === "none" ? "flex" : "none";
-  }
+        function updateTodayLabel() {
+            const today = new Date();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            document.getElementById('todayLabel').innerText = `自動產生：已繳交 ${month}/${day}`;
+        }
 
-  // 4. 管理員驗證
-  function verifyAdmin() {
-    const pwd = document.getElementById("adminPasswordInput").value.trim();
-    if (!pwd) {
-      alert("請輸入密碼！");
-      return;
-    }
+        async function fetchSheetData() {
+            try {
+                const res = await fetch(gasUrl);
+                const result = await res.json();
+                if (result.status === "success" && result.data && result.data.length > 0) {
+                    matrixData = result.data;
+                    renderTable();
+                } else {
+                    renderTable();
+                }
+            } catch (err) {
+                console.error("Fetch Error:", err);
+                renderTable();
+            }
+        }
 
-    // 將密碼記錄於記憶體中，變更時一併送往後端做安全驗證
-    currentAdminPassword = pwd;
-    isAdminVerified = true;
+        function renderTable() {
+            const headerRow = document.getElementById('tableHeader');
+            const body = document.getElementById('tableBody');
+            headerRow.innerHTML = '';
+            body.innerHTML = '';
 
-    const statusText = document.getElementById("adminStatusText");
-    statusText.innerText = "已開通編輯權限";
-    statusText.style.color = "#2f855a";
+            // Header
+            matrixData[0].forEach((col, idx) => {
+                const th = document.createElement('th');
+                th.className = 'py-3 px-3 font-semibold text-slate-700 whitespace-nowrap' + (idx < 2 ? ' bg-slate-100 sticky left-0 z-10' : '');
+                th.innerText = col;
+                headerRow.appendChild(th);
+            });
 
-    // 重新渲染表格，開啟下拉選單與儲存按鈕
-    renderTable(cachedData);
-  }
+            // Rows
+            for (let r = 1; r < matrixData.length; r++) {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/80 transition-colors';
 
-  // 5. 發送 POST 請求更新試算表狀態
-  async function updateStatus(rowIndex) {
-    const newStatus = document.getElementById(`select_${rowIndex}`).value;
+                for (let c = 0; c < matrixData[r].length; c++) {
+                    const td = document.createElement('td');
+                    td.className = 'py-2.5 px-3 whitespace-nowrap text-xs border-slate-100 border-b' + (c < 2 ? ' font-medium text-slate-800 bg-white sticky left-0 shadow-sm' : '');
+                    
+                    const val = matrixData[r][c] || '';
+                    if (c >= 2) {
+                        td.innerHTML = getStatusBadgeHTML(val);
+                        if (isAdmin) {
+                            td.className += ' cursor-pointer hover:bg-emerald-50/50 transition-all';
+                            td.onclick = () => openEditModal(r, c);
+                        }
+                    } else {
+                        td.innerText = val;
+                    }
+                    tr.appendChild(td);
+                }
+                body.appendChild(tr);
+            }
+        }
 
-    const payload = {
-      action: "updateStatus",
-      rowIndex: rowIndex,
-      status: newStatus,
-      adminPassword: currentAdminPassword
-    };
+        function getStatusBadgeHTML(val) {
+            if (!val) return `<span class="text-slate-300">-</span>`;
+            if (val.includes('已繳交')) {
+                return `<span class="badge-paid px-2 py-1 rounded-md text-[11px] font-medium inline-flex items-center"><i class="fa-solid fa-check mr-1 text-[10px]"></i>${val}</span>`;
+            } else if (val === '缺' || val.includes('未繳交')) {
+                return `<span class="badge-unpaid px-2 py-1 rounded-md text-[11px] font-bold inline-flex items-center"><i class="fa-solid fa-xmark mr-1 text-[10px]"></i>${val}</span>`;
+            } else if (val === 'X') {
+                return `<span class="badge-none px-2 py-1 rounded-md text-[11px] text-slate-400">X</span>`;
+            } else {
+                return `<span class="bg-slate-100 text-slate-700 px-2 py-1 rounded-md text-[11px] border border-slate-200">${val}</span>`;
+            }
+        }
 
-    try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify(payload)
-      });
+        function toggleAdminModal() {
+            const modal = document.getElementById('adminModal');
+            modal.classList.toggle('hidden');
+        }
 
-      const result = await response.json();
+        function verifyAdmin() {
+            const pwd = document.getElementById('adminPasswordInput').value;
+            if (!pwd) return alert("請輸入密碼");
+            
+            adminPassword = pwd;
+            isAdmin = true;
+            
+            // Update UI State
+            document.getElementById('roleBadge').className = 'bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-md border border-emerald-200';
+            document.getElementById('roleBadge').innerText = '管理員模式（可點擊修改）';
+            document.getElementById('adminBtn').className = 'bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-all flex items-center shadow-sm';
+            document.getElementById('adminBtnText').innerText = '已登入管理員';
+            document.getElementById('adminIcon').className = 'fa-solid fa-unlock text-emerald-400 mr-2';
 
-      if (result.status === "success") {
-        alert("狀態已成功修改！");
-        loadData(); // 重新整理資料
-      } else {
-        alert("修改失敗：" + result.message);
-      }
-    } catch (error) {
-      console.error(error);
-      alert("更新狀態時發生錯誤！");
-    }
-  }
+            toggleAdminModal();
+            renderTable();
+        }
 
-  // 標籤顏色控制
-  function getStatusClass(status) {
-    if (status === "已完成") return "status-done";
-    if (status === "進行中") return "status-doing";
-    return "status-pending";
-  }
-</script>
+        function openEditModal(r, c) {
+            if (!isAdmin) return;
+            currentEditingCell = { rowIndex: r, colIndex: c };
+            const name = matrixData[r][0];
+            const month = matrixData[0][c];
+            document.getElementById('editModalSubtitle').innerText = `${name} - ${month} 繳費狀態`;
+            document.getElementById('customStatusInput').value = matrixData[r][c] || '';
+            document.getElementById('editModal').classList.remove('hidden');
+        }
 
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            currentEditingCell = null;
+        }
+
+        function setQuickStatus(type) {
+            if (!currentEditingCell) return;
+            let statusStr = "";
+            const today = new Date();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+
+            if (type === 'paidToday') {
+                statusStr = `已繳交${month}/${day}`;
+            } else if (type === 'paidTransfer') {
+                statusStr = "已繳交(轉帳)";
+            } else if (type === 'unpaid') {
+                statusStr = "缺";
+            } else if (type === 'none') {
+                statusStr = "X";
+            }
+
+            saveCellChange(statusStr);
+        }
+
+        function applyCustomStatus() {
+            const val = document.getElementById('customStatusInput').value.trim();
+            saveCellChange(val);
+        }
+
+        async function saveCellChange(newVal) {
+            if (!currentEditingCell) return;
+            const { rowIndex, colIndex } = currentEditingCell;
+            matrixData[rowIndex][colIndex] = newVal;
+            
+            renderTable();
+            closeEditModal();
+
+            // Sync to Google Apps Script Backend
+            if (gasUrl && isAdmin) {
+                try {
+                    const res = await fetch(gasUrl, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            password: adminPassword,
+                            matrix: matrixData
+                        })
+                    });
+                    const result = await res.json();
+                    if (result.status !== 'success') {
+                        alert("同步失敗：" + result.message);
+                    }
+                } catch (e) {
+                    alert("網路連線或 API 存取錯誤：" + e.toString());
+                }
+            }
+        }
+    </script>
 </body>
 </html>
