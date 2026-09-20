@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Premium Family 費用繳交記錄表</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        spotify: {
+                            green: '#1DB954',
+                            darkGreen: '#1aa34a',
+                            black: '#121212',
+                            card: '#181818',
+                            hover: '#282828',
+                            subtle: '#333333',
+                            grayText: '#b3b3b3'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom Scrollbar & Utility Styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+        }
+        /* Custom Spotify Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #121212;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333333;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1DB954;
+        }
+        /* Glassmorphism background */
+        .glass-panel {
+            background: rgba(24, 24, 24, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-green {
+            box-shadow: 0 0 20px rgba(29, 185, 84, 0.25);
+        }
+        /* Pulse badge for unpaid */
+        .badge-pulse {
+            animation: pulse-border 2s infinite;
+        }
+        @keyframes pulse-border {
+            0%, 100% { border-color: rgba(244, 63, 94, 0.4); }
+            50% { border-color: rgba(244, 63, 94, 0.9); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-100 antialiased selection:bg-spotify-green selection:text-black">
+
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-30 glass-panel border-b border-white/10 px-4 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-full bg-spotify-green flex items-center justify-center text-black font-bold text-xl shadow-lg glow-green">
+                <i class="fa-brands fa-spotify text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-lg lg:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                    Spotify Premium family <span class="text-xs px-2 py-0.5 rounded-full bg-spotify-green/20 text-spotify-green border border-spotify-green/30 font-medium">費用繳交紀錄表</span>
+                </h1>
+                <p class="text-xs text-spotify-grayText flex items-center gap-2">
+                    <span id="sync-status" class="inline-flex items-center gap-1 text-emerald-400">
+                        <i class="fa-solid fa-cloud text-[10px]"></i> 自動同步已開啟 (Local)
+                    </span>
+                    <span>•</span>
+                    <span id="current-date-display"></span>
+                </p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+            <button onclick="openAddMemberModal()" class="bg-spotify-green hover:bg-spotify-darkGreen text-black font-semibold text-xs lg:text-sm px-3.5 py-2 rounded-full transition-all duration-200 flex items-center gap-2 shadow-md hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-user-plus text-xs"></i> 新增成員
+            </button>
+            <button onclick="exportCSV()" class="bg-spotify-hover hover:bg-spotify-subtle text-white text-xs lg:text-sm px-3.5 py-2 rounded-full border border-white/10 transition-all duration-200 flex items-center gap-2 hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-file-csv text-spotify-green"></i> 匯出 CSV
+            </button>
+            <button onclick="resetDataModal()" class="bg-spotify-hover hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 text-xs lg:text-sm px-3 py-2 rounded-full border border-white/10 hover:border-rose-500/30 transition-all duration-200" title="重置為初始資料">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Body Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 space-y-6">
+
+        <!-- Unpaid Alert Banner (Dynamic) -->
+        <div id="unpaid-alert-banner" class="hidden glass-panel border-l-4 border-l-rose-500 rounded-xl p-4 bg-rose-950/20 shadow-lg">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-circle-exclamation text-lg"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-sm text-rose-200" id="alert-title">繳費提醒通知</h4>
+                        <p class="text-xs text-rose-300/80 mt-0.5" id="alert-detail">發現未完成繳費成員...</p>
+                    </div>
+                </div>
+                <button onclick="switchToView('reminder')" class="shrink-0 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/40 text-xs px-3.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5">
+                    <i class="fa-brands fa-line text-emerald-400"></i> 一鍵生成催繳訊息
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard Statistics Cards Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4">
+            <!-- Stat 1: Total Members -->
+            <div class="glass-panel p-4 rounded-xl border border-white/5 relative overflow-hidden group hover:border-spotify-green/30 transition-all">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-xs font-medium text-spotify-grayText">家庭組總人數</span>
+                        <h3 class="text-2xl font-bold text-white mt-1" id="stat-total-members">0</h3>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-spotify-hover flex items-center justify-center text-spotify-green">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                </div>
+                <div class="mt-2 text-[11px] text-spotify-grayText flex items-center gap-1">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> 主帳號 6 人上限中
+                </div>
+            </div>
+
+            <!-- Stat 2: Selected Month Paid -->
+            <div class="glass-panel p-4 rounded-xl border border-white/5 relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-xs font-medium text-spotify-grayText" id="stat-month-label-paid">本月已繳交</span>
+                        <h3 class="text-2xl font-bold text-emerald-400 mt-1" id="stat-paid-count">0</h3>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+                <div class="mt-2 text-[11px] text-spotify-grayText" id="stat-paid-rate">
+                    完成率 0%
+                </div>
+            </div>
+
+            <!-- Stat 3: Selected Month Unpaid -->
+            <div class="glass-panel p-4 rounded-xl border border-white/5 relative overflow-hidden group hover:border-rose-500/30 transition-all">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-xs font-medium text-spotify-grayText" id="stat-month-label-unpaid">本月未繳/缺</span>
+                        <h3 class="text-2xl font-bold text-rose-400 mt-1" id="stat-unpaid-count">0</h3>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-400">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                </div>
+                <div class="mt-2 text-[11px] text-spotify-grayText" id="stat-unpaid-names">
+                    暫無未繳成員
+                </div>
+            </div>
+
+            <!-- Stat 4: Excluded / NA -->
+            <div class="glass-panel p-4 rounded-xl border border-white/5 relative overflow-hidden group hover:border-slate-500/30 transition-all">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-xs font-medium text-spotify-grayText">不需繳費/未加入</span>
+                        <h3 class="text-2xl font-bold text-slate-300 mt-1" id="stat-na-count">0</h3>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400">
+                        <i class="fa-solid fa-user-minus"></i>
+                    </div>
+                </div>
+                <div class="mt-2 text-[11px] text-spotify-grayText">
+                    標記為 X 的期數
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Bar & View Mode Controls -->
+        <div class="glass-panel rounded-2xl p-4 space-y-3">
+            <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+                
+                <!-- Search & Filters Left Side -->
+                <div class="flex flex-wrap items-center gap-2.5 flex-1">
+                    <!-- Search Input -->
+                    <div class="relative flex-1 min-w-[200px]">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-spotify-grayText text-xs"></i>
+                        <input type="text" id="search-input" oninput="renderApp()" placeholder="搜尋姓名或 Email..." class="w-full bg-spotify-hover text-white text-xs lg:text-sm pl-9 pr-3 py-2 rounded-xl border border-white/10 focus:outline-none focus:border-spotify-green transition-all placeholder:text-spotify-grayText/60">
+                    </div>
+
+                    <!-- Month Selector Dropdown -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-medium text-spotify-grayText whitespace-nowrap hidden sm:inline"><i class="fa-regular fa-calendar-days text-spotify-green"></i> 期數:</span>
+                        <select id="month-select" onchange="handleMonthChange()" class="bg-spotify-hover text-white text-xs lg:text-sm px-3 py-2 rounded-xl border border-white/10 focus:outline-none focus:border-spotify-green transition-all">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <!-- Status Filter Dropdown -->
+                    <div class="flex items-center gap-2">
+                        <select id="status-filter-select" onchange="renderApp()" class="bg-spotify-hover text-white text-xs lg:text-sm px-3 py-2 rounded-xl border border-white/10 focus:outline-none focus:border-spotify-green transition-all">
+                            <option value="ALL">所有狀態 (All)</option>
+                            <option value="PAID">已繳交 (Paid)</option>
+                            <option value="UNPAID">未繳交/缺 (Unpaid)</option>
+                            <option value="NA">不需繳 (X)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- View Switcher Tabs Right Side -->
+                <div class="flex items-center p-1 bg-spotify-hover rounded-xl border border-white/5 shrink-0 self-start lg:self-auto">
+                    <button id="tab-btn-matrix" onclick="switchToView('matrix')" class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 bg-spotify-green text-black font-bold shadow-sm">
+                        <i class="fa-solid fa-table-cells"></i> 全覽矩陣
+                    </button>
+                    <button id="tab-btn-cards" onclick="switchToView('cards')" class="px-3 py-1.5 rounded-lg text-xs font-medium text-spotify-grayText hover:text-white transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-address-card"></i> 成員卡片
+                    </button>
+                    <button id="tab-btn-reminder" onclick="switchToView('reminder')" class="px-3 py-1.5 rounded-lg text-xs font-medium text-spotify-grayText hover:text-white transition-all flex items-center gap-1.5 relative">
+                        <i class="fa-solid fa-bell text-amber-400"></i> 催繳助手
+                        <span id="unpaid-badge-dot" class="w-2 h-2 rounded-full bg-rose-500 absolute top-1 right-1 hidden"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View 1: Spreadsheet Matrix View -->
+        <div id="view-matrix" class="glass-panel rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+            <div class="overflow-x-auto relative max-h-[600px]">
+                <table class="w-full text-left border-collapse text-xs lg:text-sm">
+                    <thead>
+                        <tr class="bg-black/60 border-b border-white/10 text-spotify-grayText uppercase text-[11px] tracking-wider sticky top-0 z-20 backdrop-blur-md">
+                            <th scope="col" class="py-3.5 px-4 font-bold sticky left-0 bg-[#151515] z-30 min-w-[130px] border-r border-white/10">成員姓名</th>
+                            <th scope="col" class="py-3.5 px-4 font-semibold min-w-[200px] border-r border-white/10">Email</th>
+                            <!-- Dynamic Month Headers -->
+                            <template id="month-header-template">
+                                <th scope="col" class="py-3.5 px-3 text-center min-w-[125px] border-r border-white/5 hover:bg-white/5 transition-colors"></th>
+                            </template>
+                            <th scope="col" class="py-3.5 px-3 text-center min-w-[90px] sticky right-0 bg-[#151515] z-30 border-l border-white/10">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="matrix-tbody" class="divide-y divide-white/5">
+                        <!-- Rows rendered dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-3 bg-black/40 border-t border-white/5 text-[11px] text-spotify-grayText flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-4">
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> 已繳交</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> 未繳/缺</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-600"></span> 不需繳交 (X)</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> 點擊表格方格可直接修改狀態</span>
+                </div>
+                <div>
+                    提示：捲動可查看完整期數
+                </div>
+            </div>
+        </div>
+
+        <!-- View 2: Member Cards Grid View -->
+        <div id="view-cards" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Cards rendered dynamically -->
+        </div>
+
+        <!-- View 3: Quick Reminder Generator View -->
+        <div id="view-reminder" class="hidden glass-panel rounded-2xl p-6 border border-white/10 space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-brands fa-line text-emerald-400 text-xl"></i> 一鍵催繳 / LINE 提醒訊息生成器
+                    </h3>
+                    <p class="text-xs text-spotify-grayText mt-1">針對選擇期數（<span id="reminder-selected-month-text" class="text-spotify-green font-semibold">2026/09</span>）快速複製貼上 LINE 或 Messenger 通知訊息</p>
+                </div>
+                <button onclick="copyAllUnpaidReminders()" class="bg-spotify-green hover:bg-spotify-darkGreen text-black font-bold text-xs px-4 py-2.5 rounded-full transition-all flex items-center gap-2 shadow-lg hover:scale-105 active:scale-95 shrink-0">
+                    <i class="fa-solid fa-copy"></i> 一鍵複製所有未繳成員提醒
+                </button>
+            </div>
+
+            <!-- Custom Message Template Editor -->
+            <div class="bg-spotify-hover/60 p-4 rounded-xl border border-white/5 space-y-2">
+                <label class="text-xs font-semibold text-spotify-grayText flex items-center justify-between">
+                    <span>自訂提醒訊息模板</span>
+                    <span class="text-[11px] text-spotify-green">可用變數：{Name}, {Month}, {Email}</span>
+                </label>
+                <textarea id="reminder-template" oninput="updateReminderPreviews()" rows="2" class="w-full bg-black/60 text-xs lg:text-sm text-white p-3 rounded-lg border border-white/10 focus:outline-none focus:border-spotify-green transition-all">【Spotify 家庭方案繳費提醒】嗨 {Name}，您 {Month} 月的 Spotify 家庭組費用尚未繳交，請記得轉帳給主辦人喔！謝謝～</textarea>
+            </div>
+
+            <!-- List of Unpaid Members with Copy Buttons -->
+            <div id="unpaid-reminder-list" class="space-y-3">
+                <!-- Dynamic cards -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal: Cell Quick Edit -->
+    <div id="cell-edit-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-2xl border border-white/10 shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in duration-150">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <div>
+                    <h3 class="font-bold text-base text-white" id="modal-cell-title">修改繳費狀態</h3>
+                    <p class="text-xs text-spotify-grayText mt-0.5" id="modal-cell-subtitle">成員： - | 期數： -</p>
+                </div>
+                <button onclick="closeCellEditModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-spotify-grayText hover:text-white transition-all">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Quick Preset Status Buttons -->
+            <div class="space-y-2">
+                <label class="text-xs text-spotify-grayText font-medium">快速選擇常見狀態：</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setCellPreset('已繳交')" class="py-2 px-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold text-left transition-all flex items-center justify-between">
+                        <span>已繳交</span> <i class="fa-solid fa-check text-emerald-400"></i>
+                    </button>
+                    <button onclick="setCellPresetWithToday()" class="py-2 px-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold text-left transition-all flex items-center justify-between">
+                        <span id="preset-today-text">已繳交 MM/DD</span> <i class="fa-solid fa-calendar-check text-emerald-400"></i>
+                    </button>
+                    <button onclick="setCellPreset('已繳交(轉帳)')" class="py-2 px-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold text-left transition-all flex items-center justify-between">
+                        <span>已繳交(轉帳)</span> <i class="fa-solid fa-money-bill-transfer text-emerald-400"></i>
+                    </button>
+                    <button onclick="setCellPreset('未繳交')" class="py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-semibold text-left transition-all flex items-center justify-between">
+                        <span>未繳交</span> <i class="fa-solid fa-clock text-amber-400"></i>
+                    </button>
+                    <button onclick="setCellPreset('缺')" class="py-2 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-semibold text-left transition-all flex items-center justify-between">
+                        <span>缺</span> <i class="fa-solid fa-triangle-exclamation text-rose-400"></i>
+                    </button>
+                    <button onclick="setCellPreset('X')" class="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 text-xs font-semibold text-left transition-all flex items-center justify-between">
+                        <span>X (不需繳交)</span> <i class="fa-solid fa-minus text-slate-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Status Text Input -->
+            <div class="space-y-1.5">
+                <label class="text-xs text-spotify-grayText font-medium">或自訂註記狀態：</label>
+                <div class="flex gap-2">
+                    <input type="text" id="cell-custom-input" placeholder="例如：已繳交09/20" class="flex-1 bg-spotify-hover text-white text-xs lg:text-sm px-3 py-2 rounded-xl border border-white/10 focus:outline-none focus:border-spotify-green">
+                    <button onclick="clearCellStatus()" class="px-3 py-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs">清除</button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-white/10 pt-4">
+                <button onclick="closeCellEditModal()" class="px-4 py-2 rounded-full text-xs font-medium text-spotify-grayText hover:text-white transition-all">取消</button>
+                <button onclick="saveCellEditModal()" class="px-5 py-2 rounded-full text-xs font-bold bg-spotify-green hover:bg-spotify-darkGreen text-black transition-all shadow-md">儲存更新</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Add / Edit Member -->
+    <div id="member-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md rounded-2xl border border-white/10 shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in duration-150">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <h3 class="font-bold text-base text-white" id="member-modal-title">新增成員</h3>
+                <button onclick="closeMemberModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-spotify-grayText hover:text-white transition-all">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <input type="hidden" id="edit-member-id" value="">
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-spotify-grayText mb-1">姓名 / 暱稱 <span class="text-rose-400">*</span></label>
+                    <input type="text" id="input-member-name" placeholder="請輸入姓名 (例如：阿明)" class="w-full bg-spotify-hover text-white text-xs lg:text-sm px-3.5 py-2.5 rounded-xl border border-white/10 focus:outline-none focus:border-spotify-green">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-spotify-grayText mb-1">Email 信箱 (選填)</label>
+                    <input type="email" id="input-member-email" placeholder="example@gmail.com" class="w-full bg-spotify-hover text-white text-xs lg:text-sm px-3.5 py-2.5 rounded-xl border border-white/10 focus:outline-none focus:border-spotify-green">
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-white/10 pt-4">
+                <button id="btn-delete-member" onclick="deleteCurrentMember()" class="hidden text-xs text-rose-400 hover:text-rose-300 font-medium flex items-center gap-1">
+                    <i class="fa-solid fa-trash"></i> 刪除此成員
+                </button>
+                <div class="flex items-center gap-2 ml-auto">
+                    <button onclick="closeMemberModal()" class="px-4 py-2 rounded-full text-xs font-medium text-spotify-grayText hover:text-white transition-all">取消</button>
+                    <button onclick="saveMemberModal()" class="px-5 py-2 rounded-full text-xs font-bold bg-spotify-green hover:bg-spotify-darkGreen text-black transition-all shadow-md">儲存成員</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // Initial Dataset populated directly from user spreadsheet
+        const DEFAULT_MONTHS = ['2026/03', '2026/04', '2026/05', '2026/06', '2026/07', '2026/08', '2026/09', '2026/10'];
+
+        const INITIAL_MEMBERS = [
+            {
+                id: 'mem_1',
+                name: '被玟',
+                email: 'joannalee197509@gmail.com',
+                records: {
+                    '2026/03': '已繳交',
+                    '2026/04': '已繳交',
+                    '2026/05': '已繳交',
+                    '2026/06': '已繳交(轉帳)',
+                    '2026/07': '已繳交09/16',
+                    '2026/08': '已繳交09/16',
+                    '2026/09': '已繳交09/16',
+                    '2026/10': ''
+                }
+            },
+            {
+                id: 'mem_2',
+                name: '松澤',
+                email: 'jason1041387@gmail.com',
+                records: {
+                    '2026/03': '已繳交',
+                    '2026/04': '已繳交',
+                    '2026/05': '已繳交',
+                    '2026/06': '已繳交',
+                    '2026/07': '已繳交',
+                    '2026/08': '已繳交',
+                    '2026/09': '已繳交09/11',
+                    '2026/10': ''
+                }
+            },
+            {
+                id: 'mem_3',
+                name: '岑菲',
+                email: 'zhangcenfei9@gmail.com',
+                records: {
+                    '2026/03': '已繳交',
+                    '2026/04': '已繳交',
+                    '2026/05': '已繳交',
+                    '2026/06': '已繳交',
+                    '2026/07': '已繳交',
+                    '2026/08': '未繳交',
+                    '2026/09': '缺',
+                    '2026/10': ''
+                }
+            },
+            {
+                id: 'mem_4',
+                name: '祐丞',
+                email: '',
+                records: {
+                    '2026/03': 'X',
+                    '2026/04': 'X',
+                    '2026/05': 'X',
+                    '2026/06': 'X',
+                    '2026/07': 'X',
+                    '2026/08': 'X',
+                    '2026/09': '已繳交09/14',
+                    '2026/10': ''
+                }
+            },
+            {
+                id: 'mem_5',
+                name: '宗佑',
+                email: 'zuuulin@gmail.com',
+                records: {
+                    '2026/03': '已繳交',
+                    '2026/04': '已繳交',
+                    '2026/05': '已繳交',
+                    '2026/06': 'X',
+                    '2026/07': 'X',
+                    '2026/08': 'X',
+                    '2026/09': 'X',
+                    '2026/10': ''
+                }
+            },
+            {
+                id: 'mem_6',
+                name: '育陞',
+                email: 'leo2018lin@gmail.com',
+                records: {
+                    '2026/03': '已繳交',
+                    '2026/04': '已繳交',
+                    '2026/05': '已繳交',
+                    '2026/06': '已繳交',
+                    '2026/07': '已繳交',
+                    '2026/08': '已繳交',
+                    '2026/09': '缺',
+                    '2026/10': ''
+                }
+            }
+        ];
+
+        // Application State
+        let state = {
+            months: [...DEFAULT_MONTHS],
+            members: [],
+            selectedMonth: '2026/09',
+            activeView: 'matrix', // 'matrix' | 'cards' | 'reminder'
+            activeModalCell: null // { memberId, month }
+        };
+
+        // Initialize App on DOM Load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStateFromStorage();
+            initDateDisplays();
+            renderMonthDropdown();
+            renderApp();
+        });
+
+        // Load & Save LocalStorage
+        function loadStateFromStorage() {
+            const saved = localStorage.getItem('spotify_family_tracker_data');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    state.members = parsed.members || INITIAL_MEMBERS;
+                    state.months = parsed.months || DEFAULT_MONTHS;
+                } catch(e) {
+                    state.members = INITIAL_MEMBERS;
+                }
+            } else {
+                state.members = INITIAL_MEMBERS;
+            }
+        }
+
+        function saveStateToStorage() {
+            localStorage.setItem('spotify_family_tracker_data', JSON.stringify({
+                members: state.members,
+                months: state.months
+            }));
+            showToast('所有更新已自動寫入本地儲存');
+        }
+
+        function initDateDisplays() {
+            const dateStr = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            document.getElementById('current-date-display').textContent = `今日：${dateStr}`;
+            
+            // Format preset MM/DD for quick button
+            const now = new Date();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            document.getElementById('preset-today-text').textContent = `已繳交${mm}/${dd}`;
+        }
+
+        function renderMonthDropdown() {
+            const select = document.getElementById('month-select');
+            select.innerHTML = '';
+            state.months.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                if (m === state.selectedMonth) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function handleMonthChange() {
+            state.selectedMonth = document.getElementById('month-select').value;
+            renderApp();
+        }
+
+        function switchToView(viewName) {
+            state.activeView = viewName;
+            
+            // Update Tab Styling
+            const tabs = {
+                matrix: document.getElementById('tab-btn-matrix'),
+                cards: document.getElementById('tab-btn-cards'),
+                reminder: document.getElementById('tab-btn-reminder')
+            };
+
+            const views = {
+                matrix: document.getElementById('view-matrix'),
+                cards: document.getElementById('view-cards'),
+                reminder: document.getElementById('view-reminder')
+            };
+
+            Object.keys(tabs).forEach(k => {
+                if (k === viewName) {
+                    tabs[k].className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-spotify-green text-black shadow-sm";
+                    views[k].classList.remove('hidden');
+                } else {
+                    tabs[k].className = "px-3 py-1.5 rounded-lg text-xs font-medium text-spotify-grayText hover:text-white transition-all flex items-center gap-1.5";
+                    views[k].classList.add('hidden');
+                }
+            });
+
+            renderApp();
+        }
+
+        // Helper to categorize cell status
+        function getStatusCategory(val) {
+            if (!val || val.trim() === '') return 'EMPTY';
+            const str = val.trim();
+            if (str === 'X' || str === 'x') return 'NA';
+            if (str.includes('缺') || str.includes('未繳')) return 'UNPAID';
+            if (str.includes('已繳交') || str.includes('已繳')) return 'PAID';
+            return 'PAID'; // default assuming note is paid
+        }
+
+        // Render Badge Component
+        function renderStatusBadgeHTML(val) {
+            if (!val || val.trim() === '') {
+                return `<span class="inline-block w-full py-1 text-center text-spotify-grayText/40 border border-dashed border-white/10 rounded-md text-[11px] hover:border-spotify-green/50 hover:text-spotify-green transition-all">— 未輸入 —</span>`;
+            }
+
+            const cat = getStatusCategory(val);
+            if (cat === 'PAID') {
+                return `<span class="inline-flex items-center justify-center gap-1 w-full py-1 px-2 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-medium shadow-sm">
+                    <i class="fa-solid fa-circle-check text-[10px]"></i> ${escapeHTML(val)}
+                </span>`;
+            } else if (cat === 'UNPAID') {
+                return `<span class="inline-flex items-center justify-center gap-1 w-full py-1 px-2 bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-bold shadow-sm badge-pulse">
+                    <i class="fa-solid fa-circle-exclamation text-[10px]"></i> ${escapeHTML(val)}
+                </span>`;
+            } else if (cat === 'NA') {
+                return `<span class="inline-flex items-center justify-center gap-1 w-full py-1 px-2 bg-slate-800/80 text-slate-400 border border-slate-700 rounded-lg text-xs font-normal">
+                    ${escapeHTML(val)}
+                </span>`;
+            }
+
+            return `<span class="inline-block w-full py-1 px-2 bg-spotify-hover text-white rounded-lg text-xs">${escapeHTML(val)}</span>`;
+        }
+
+        function renderApp() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase().trim();
+            const statusFilter = document.getElementById('status-filter-select').value;
+
+            // Filter members
+            const filteredMembers = state.members.filter(m => {
+                const matchesSearch = m.name.toLowerCase().includes(searchTerm) || (m.email && m.email.toLowerCase().includes(searchTerm));
+                
+                if (!matchesSearch) return false;
+
+                if (statusFilter !== 'ALL') {
+                    const currentVal = m.records[state.selectedMonth] || '';
+                    const cat = getStatusCategory(currentVal);
+                    if (statusFilter === 'PAID' && cat !== 'PAID') return false;
+                    if (statusFilter === 'UNPAID' && cat !== 'UNPAID') return false;
+                    if (statusFilter === 'NA' && cat !== 'NA') return false;
+                }
+
+                return true;
+            });
+
+            // Update Header Stats (based on current selected month)
+            updateDashboardStats();
+
+            // Render Active View
+            if (state.activeView === 'matrix') {
+                renderMatrixView(filteredMembers);
+            } else if (state.activeView === 'cards') {
+                renderCardsView(filteredMembers);
+            } else if (state.activeView === 'reminder') {
+                renderReminderView();
+            }
+        }
+
+        function updateDashboardStats() {
+            const total = state.members.length;
+            let paidCount = 0;
+            let unpaidCount = 0;
+            let naCount = 0;
+            const unpaidNames = [];
+
+            state.members.forEach(m => {
+                const val = m.records[state.selectedMonth] || '';
+                const cat = getStatusCategory(val);
+                if (cat === 'PAID') paidCount++;
+                else if (cat === 'UNPAID') {
+                    unpaidCount++;
+                    unpaidNames.push(m.name);
+                } else if (cat === 'NA') naCount++;
+            });
+
+            document.getElementById('stat-total-members').textContent = total;
+            document.getElementById('stat-month-label-paid').textContent = `${state.selectedMonth} 已繳交`;
+            document.getElementById('stat-month-label-unpaid').textContent = `${state.selectedMonth} 未繳/缺`;
+            document.getElementById('stat-paid-count').textContent = paidCount;
+            document.getElementById('stat-unpaid-count').textContent = unpaidCount;
+            document.getElementById('stat-na-count').textContent = naCount;
+
+            const targetPayers = total - naCount;
+            const rate = targetPayers > 0 ? Math.round((paidCount / targetPayers) * 100) : 0;
+            document.getElementById('stat-paid-rate').textContent = `目標完成率 ${rate}% (${paidCount}/${targetPayers})`;
+
+            const unpaidNamesText = document.getElementById('stat-unpaid-names');
+            if (unpaidCount > 0) {
+                unpaidNamesText.textContent = `待催繳：${unpaidNames.join('、')}`;
+                unpaidNamesText.className = "mt-2 text-[11px] text-rose-400 font-medium truncate";
+            } else {
+                unpaidNamesText.textContent = `本期全員繳清 ✨`;
+                unpaidNamesText.className = "mt-2 text-[11px] text-emerald-400 font-medium";
+            }
+
+            // Alert Banner
+            const alertBanner = document.getElementById('unpaid-alert-banner');
+            const alertDot = document.getElementById('unpaid-badge-dot');
+
+            if (unpaidCount > 0) {
+                alertBanner.classList.remove('hidden');
+                alertDot.classList.remove('hidden');
+                document.getElementById('alert-title').textContent = `${state.selectedMonth} 期有 ${unpaidCount} 位成員尚未完成繳費！`;
+                document.getElementById('alert-detail').textContent = `未繳成員：${unpaidNames.join(', ')}。請點擊右側按鈕複製 LINE 催繳訊息。`;
+            } else {
+                alertBanner.classList.add('hidden');
+                alertDot.classList.add('hidden');
+            }
+        }
+
+        // Render Matrix Table View
+        function renderMatrixView(members) {
+            const tbody = document.getElementById('matrix-tbody');
+            tbody.innerHTML = '';
+
+            // Header template check
+            const headerRow = document.querySelector('thead tr');
+            // Remove previous month columns except name & email & actions
+            while (headerRow.children.length > 3) {
+                headerRow.removeChild(headerRow.children[2]);
+            }
+
+            // Insert month headers
+            state.months.forEach(month => {
+                const th = document.createElement('th');
+                th.className = `py-3.5 px-3 text-center min-w-[125px] border-r border-white/5 transition-colors ${month === state.selectedMonth ? 'bg-spotify-green/10 text-spotify-green font-bold border-b-2 border-b-spotify-green' : ''}`;
+                th.innerHTML = `${month} ${month === state.selectedMonth ? '<i class="fa-solid fa-caret-down text-xs ml-0.5"></i>' : ''}`;
+                headerRow.insertBefore(th, headerRow.children[headerRow.children.length - 1]);
+            });
+
+            if (members.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="${state.months.length + 3}" class="text-center py-12 text-spotify-grayText">
+                            <i class="fa-solid fa-magnifying-glass text-3xl mb-2 block opacity-40"></i>
+                            查無符合條件的成員資料
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            members.forEach(mem => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-white/[0.03] transition-colors group";
+
+                // Name Column
+                let html = `
+                    <td class="py-3 px-4 font-bold sticky left-0 bg-[#181818] group-hover:bg-[#202020] z-10 border-r border-white/10 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-full bg-spotify-hover text-spotify-green border border-white/10 flex items-center justify-center font-bold text-xs shrink-0">
+                                ${escapeHTML(mem.name.charAt(0))}
+                            </div>
+                            <span>${escapeHTML(mem.name)}</span>
+                        </div>
+                    </td>
+                    <td class="py-3 px-4 text-spotify-grayText border-r border-white/10 whitespace-nowrap font-mono text-xs">
+                        ${mem.email ? `<a href="mailto:${escapeHTML(mem.email)}" class="hover:text-spotify-green transition-colors"><i class="fa-regular fa-envelope text-[10px] mr-1"></i>${escapeHTML(mem.email)}</a>` : '<span class="text-white/20">無信箱</span>'}
+                    </td>
+                `;
+
+                // Month Cell Columns
+                state.months.forEach(month => {
+                    const cellVal = mem.records[month] || '';
+                    const isSelected = month === state.selectedMonth;
+                    html += `
+                        <td onclick="openCellEditModal('${mem.id}', '${month}')" class="py-2.5 px-2.5 text-center border-r border-white/5 cursor-pointer hover:bg-white/10 transition-all ${isSelected ? 'bg-spotify-green/5' : ''}">
+                            ${renderStatusBadgeHTML(cellVal)}
+                        </td>
+                    `;
+                });
+
+                // Action Column
+                html += `
+                    <td class="py-3 px-3 text-center sticky right-0 bg-[#181818] group-hover:bg-[#202020] z-10 border-l border-white/10">
+                        <button onclick="openEditMemberModal('${mem.id}')" class="p-1.5 text-spotify-grayText hover:text-white hover:bg-white/10 rounded-lg transition-all" title="編輯成員資訊">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                    </td>
+                `;
+
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderCardsView(members) {
+            const container = document.getElementById('view-cards');
+            container.innerHTML = '';
+
+            if (members.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full glass-panel p-12 text-center text-spotify-grayText rounded-2xl">
+                        <i class="fa-solid fa-user-slash text-4xl mb-3 block opacity-30"></i>
+                        查無符合條件的成員
+                    </div>
+                `;
+                return;
+            }
+
+            members.forEach(mem => {
+                const currentVal = mem.records[state.selectedMonth] || '';
+                const card = document.createElement('div');
+                card.className = "glass-panel p-5 rounded-2xl border border-white/10 hover:border-spotify-green/40 transition-all space-y-4 flex flex-col justify-between";
+
+                let historyHTML = '';
+                state.months.forEach(m => {
+                    const val = mem.records[m] || '';
+                    const cat = getStatusCategory(val);
+                    let dotClass = "bg-slate-600";
+                    if (cat === 'PAID') dotClass = "bg-emerald-400";
+                    if (cat === 'UNPAID') dotClass = "bg-rose-500";
+
+                    historyHTML += `
+                        <div onclick="openCellEditModal('${mem.id}', '${m}')" class="cursor-pointer group/item flex flex-col items-center p-1.5 rounded-lg hover:bg-white/10 transition-all ${m === state.selectedMonth ? 'bg-white/5 border border-spotify-green/30' : ''}">
+                            <span class="text-[10px] text-spotify-grayText font-mono">${m.replace('2026/', '')}</span>
+                            <span class="w-2.5 h-2.5 rounded-full ${dotClass} my-1"></span>
+                            <span class="text-[10px] truncate max-w-[50px] text-slate-300">${val ? escapeHTML(val) : '—'}</span>
+                        </div>
+                    `;
+                });
+
+                card.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-spotify-green text-black font-bold flex items-center justify-center text-base shadow-md">
+                                    ${escapeHTML(mem.name.charAt(0))}
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-base text-white flex items-center gap-1.5">
+                                        ${escapeHTML(mem.name)}
+                                    </h4>
+                                    <p class="text-xs text-spotify-grayText truncate max-w-[180px]">
+                                        ${mem.email ? escapeHTML(mem.email) : '未提供 Email'}
+                                    </p>
+                                </div>
+                            </div>
+                            <button onclick="openEditMemberModal('${mem.id}')" class="text-xs text-spotify-grayText hover:text-white p-1.5 rounded-lg hover:bg-white/10">
+                                <i class="fa-solid fa-gear"></i>
+                            </button>
+                        </div>
+
+                        <div class="p-3 bg-black/40 rounded-xl border border-white/5">
+                            <div class="text-[11px] text-spotify-grayText mb-1 flex justify-between">
+                                <span>選擇月份 (${state.selectedMonth}) 狀態：</span>
+                                <span class="text-spotify-green cursor-pointer hover:underline" onclick="openCellEditModal('${mem.id}', '${state.selectedMonth}')">點擊修改</span>
+                            </div>
+                            <div>
+                                ${renderStatusBadgeHTML(currentVal)}
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="text-[11px] font-medium text-spotify-grayText block mb-1.5">所有期數歷程紀錄：</span>
+                            <div class="grid grid-cols-4 gap-1">
+                                ${historyHTML}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        function renderReminderView() {
+            document.getElementById('reminder-selected-month-text').textContent = state.selectedMonth;
+            const container = document.getElementById('unpaid-reminder-list');
+            container.innerHTML = '';
+
+            const template = document.getElementById('reminder-template').value;
+
+            // Get unpaid members for selected month
+            const unpaidMembers = state.members.filter(m => {
+                const val = m.records[state.selectedMonth] || '';
+                return getStatusCategory(val) === 'UNPAID';
+            });
+
+            if (unpaidMembers.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center glass-panel rounded-xl text-emerald-400 space-y-2">
+                        <i class="fa-solid fa-circle-check text-4xl block"></i>
+                        <h4 class="font-bold text-base text-white">${state.selectedMonth} 期尚無未繳費成員！</h4>
+                        <p class="text-xs text-spotify-grayText">大家都很準時繳費，讚讚～ 👍</p>
+                    </div>
+                `;
+                return;
+            }
+
+            unpaidMembers.forEach(mem => {
+                const msg = generateMessageText(template, mem.name, state.selectedMonth, mem.email);
+                const item = document.createElement('div');
+                item.className = "p-4 bg-spotify-hover rounded-xl border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4";
+                
+                item.innerHTML = `
+                    <div class="space-y-1.5 flex-1">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-sm text-white">${escapeHTML(mem.name)}</span>
+                            ${mem.email ? `<span class="text-xs text-spotify-grayText">(${escapeHTML(mem.email)})</span>` : ''}
+                            <span class="text-xs px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-semibold">狀態: ${escapeHTML(mem.records[state.selectedMonth])}</span>
+                        </div>
+                        <div class="bg-black/60 p-3 rounded-lg text-xs font-mono text-slate-200 border border-white/5 whitespace-pre-wrap select-all">
+                            ${escapeHTML(msg)}
+                        </div>
+                    </div>
+                    <button onclick="copySingleReminder('${escapeJsString(msg)}')" class="shrink-0 bg-spotify-green/20 hover:bg-spotify-green text-spotify-green hover:text-black border border-spotify-green/40 font-bold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-copy"></i> 複製此訊息
+                    </button>
+                `;
+
+                container.appendChild(item);
+            });
+        }
+
+        function generateMessageText(template, name, month, email) {
+            return template
+                .replace(/\{Name\}/g, name)
+                .replace(/\{Month\}/g, month)
+                .replace(/\{Email\}/g, email || '');
+        }
+
+        function updateReminderPreviews() {
+            if (state.activeView === 'reminder') {
+                renderReminderView();
+            }
+        }
+
+        function copySingleReminder(text) {
+            copyToClipboard(text);
+            showToast('已複製提醒訊息！可直接貼至 LINE 聊天室');
+        }
+
+        function copyAllUnpaidReminders() {
+            const template = document.getElementById('reminder-template').value;
+            const unpaidMembers = state.members.filter(m => {
+                const val = m.records[state.selectedMonth] || '';
+                return getStatusCategory(val) === 'UNPAID';
+            });
+
+            if (unpaidMembers.length === 0) {
+                showToast('本期沒有未繳成員可催繳！', 'info');
+                return;
+            }
+
+            const messages = unpaidMembers.map(m => generateMessageText(template, m.name, state.selectedMonth, m.email));
+            const fullText = messages.join('\n\n------------------\n\n');
+            copyToClipboard(fullText);
+            showToast(`已一次複製 ${unpaidMembers.length} 位未繳成員催繳訊息！`);
+        }
+
+        // Cell Edit Modal Handlers
+        function openCellEditModal(memberId, month) {
+            const member = state.members.find(m => m.id === memberId);
+            if (!member) return;
+
+            state.activeModalCell = { memberId, month };
+            const currentVal = member.records[month] || '';
+
+            document.getElementById('modal-cell-title').textContent = `修改繳費狀態`;
+            document.getElementById('modal-cell-subtitle').textContent = `成員：${member.name} ｜ 期數：${month}`;
+            document.getElementById('cell-custom-input').value = currentVal;
+
+            document.getElementById('cell-edit-modal').classList.remove('hidden');
+        }
+
+        function closeCellEditModal() {
+            document.getElementById('cell-edit-modal').classList.add('hidden');
+            state.activeModalCell = null;
+        }
+
+        function setCellPreset(val) {
+            document.getElementById('cell-custom-input').value = val;
+            saveCellEditModal();
+        }
+
+        function setCellPresetWithToday() {
+            const now = new Date();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            document.getElementById('cell-custom-input').value = `已繳交${mm}/${dd}`;
+            saveCellEditModal();
+        }
+
+        function clearCellStatus() {
+            document.getElementById('cell-custom-input').value = '';
+            saveCellEditModal();
+        }
+
+        function saveCellEditModal() {
+            if (!state.activeModalCell) return;
+            const { memberId, month } = state.activeModalCell;
+            const newVal = document.getElementById('cell-custom-input').value.trim();
+
+            const member = state.members.find(m => m.id === memberId);
+            if (member) {
+                member.records[month] = newVal;
+                saveStateToStorage();
+                renderApp();
+            }
+
+            closeCellEditModal();
+        }
+
+        // Member Add / Edit Modal Handlers
+        function openAddMemberModal() {
+            document.getElementById('edit-member-id').value = '';
+            document.getElementById('member-modal-title').textContent = '新增家庭組成員';
+            document.getElementById('input-member-name').value = '';
+            document.getElementById('input-member-email').value = '';
+            document.getElementById('btn-delete-member').classList.add('hidden');
+            document.getElementById('member-modal').classList.remove('hidden');
+        }
+
+        function openEditMemberModal(memberId) {
+            const member = state.members.find(m => m.id === memberId);
+            if (!member) return;
+
+            document.getElementById('edit-member-id').value = member.id;
+            document.getElementById('member-modal-title').textContent = `編輯成員：${member.name}`;
+            document.getElementById('input-member-name').value = member.name;
+            document.getElementById('input-member-email').value = member.email || '';
+            document.getElementById('btn-delete-member').classList.remove('hidden');
+            document.getElementById('member-modal').classList.remove('hidden');
+        }
+
+        function closeMemberModal() {
+            document.getElementById('member-modal').classList.add('hidden');
+        }
+
+        function saveMemberModal() {
+            const id = document.getElementById('edit-member-id').value;
+            const name = document.getElementById('input-member-name').value.trim();
+            const email = document.getElementById('input-member-email').value.trim();
+
+            if (!name) {
+                showToast('請輸入成員姓名！', 'error');
+                return;
+            }
+
+            if (id) {
+                // Edit existing
+                const mem = state.members.find(m => m.id === id);
+                if (mem) {
+                    mem.name = name;
+                    mem.email = email;
+                }
+            } else {
+                // Add new
+                const newMem = {
+                    id: 'mem_' + Date.now(),
+                    name: name,
+                    email: email,
+                    records: {}
+                };
+                state.months.forEach(m => newMem.records[m] = '');
+                state.members.push(newMem);
+            }
+
+            saveStateToStorage();
+            renderApp();
+            closeMemberModal();
+            showToast(id ? '成員資訊更新成功' : '成功新增成員');
+        }
+
+        function deleteCurrentMember() {
+            const id = document.getElementById('edit-member-id').value;
+            if (!id) return;
+            
+            const mem = state.members.find(m => m.id === id);
+            if (mem && confirmAction(`確定要移除成員「${mem.name}」嗎？此操作無法復原。`)) {
+                state.members = state.members.filter(m => m.id !== id);
+                saveStateToStorage();
+                renderApp();
+                closeMemberModal();
+                showToast('已成功移除該成員');
+            }
+        }
+
+        function resetDataModal() {
+            if (confirmAction('確定要將所有紀錄重置回預設表格資料嗎？自訂的修改將會被覆蓋。')) {
+                state.members = JSON.parse(JSON.stringify(INITIAL_MEMBERS));
+                state.months = [...DEFAULT_MONTHS];
+                saveStateToStorage();
+                renderApp();
+                showToast('已重置為初始資料！');
+            }
+        }
+
+        // Custom confirm dialogue replacement
+        function confirmAction(message) {
+            return window.confirm(message);
+        }
+
+        // Export CSV Function
+        function exportCSV() {
+            let csv = '\uFEFF'; // BOM for Excel Chinese encoding
+            // Header
+            csv += '姓名,Email,' + state.months.join(',') + '\n';
+
+            // Rows
+            state.members.forEach(m => {
+                const row = [
+                    `"${m.name.replace(/"/g, '""')}"`,
+                    `"${(m.email || '').replace(/"/g, '""')}"`
+                ];
+                state.months.forEach(mon => {
+                    row.push(`"${(m.records[mon] || '').replace(/"/g, '""')}"`);
+                });
+                csv += row.join(',') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `Spotify_Family_繳費記錄表_${state.selectedMonth.replace('/', '')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('已開始下載 CSV 檔案');
+        }
+
+        // Utility: Copy to Clipboard
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bg = 'bg-spotify-card border-spotify-green/40 text-white';
+            let icon = '<i class="fa-solid fa-circle-check text-spotify-green"></i>';
+
+            if (type === 'error') {
+                bg = 'bg-rose-950 border-rose-500/50 text-rose-200';
+                icon = '<i class="fa-solid fa-triangle-exclamation text-rose-400"></i>';
+            } else if (type === 'info') {
+                bg = 'bg-slate-900 border-sky-500/50 text-sky-200';
+                icon = '<i class="fa-solid fa-circle-info text-sky-400"></i>';
+            }
+
+            toast.className = `${bg} border px-4 py-3 rounded-xl shadow-2xl text-xs font-medium flex items-center gap-2.5 transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-auto`;
+            toast.innerHTML = `${icon} <span>${escapeHTML(message)}</span>`;
+
+            container.appendChild(toast);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            });
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function escapeJsString(str) {
+            if (!str) return '';
+            return str
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/"/g, '\\"')
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r');
+        }
+    </script>
+</body>
+</html>
