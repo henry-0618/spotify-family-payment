@@ -294,6 +294,49 @@
 
     </main>
 
+    <!-- Admin Login Modal -->
+    <div id="admin-login-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl p-6 space-y-5">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white">管理員身分驗證</h3>
+                        <p class="text-xs text-spotify-grayText">請輸入解鎖密碼</p>
+                    </div>
+                </div>
+                <button onclick="closeAdminLoginModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-spotify-grayText">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- 顯示登入帳號名稱 -->
+            <div class="bg-spotify-hover/70 p-3 rounded-xl border border-white/5 flex items-center justify-between">
+                <span class="text-xs text-spotify-grayText font-medium">登入帳號名稱：</span>
+                <span class="text-xs font-bold text-spotify-green flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-circle"></i> Henry
+                </span>
+            </div>
+
+            <div class="space-y-1.5">
+                <label class="block text-xs font-medium text-spotify-grayText">輸入管理員密碼</label>
+                <div class="relative">
+                    <input type="password" id="admin-password-input" placeholder="請輸入密碼" onkeydown="handleAdminLoginKeydown(event)" class="w-full bg-spotify-hover text-white text-sm pl-3.5 pr-10 py-2.5 rounded-xl border border-white/10 focus:outline-none focus:border-spotify-green transition-all">
+                    <button type="button" onclick="togglePasswordVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-spotify-grayText hover:text-white text-xs">
+                        <i id="eye-icon" class="fa-regular fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-white/10 pt-4">
+                <button onclick="closeAdminLoginModal()" class="px-4 py-2 text-xs text-spotify-grayText hover:text-white">取消</button>
+                <button onclick="submitAdminLogin()" class="px-5 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black rounded-full transition-all">驗證登入</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Cell Edit Modal -->
     <div id="cell-edit-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
         <div class="glass-panel w-full max-w-md rounded-2xl border border-white/10 shadow-2xl p-6 space-y-5">
@@ -381,12 +424,11 @@
     <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
     <script>
-        // 指定為 Apps Script 部署出的 Web App URL
+        // Apps Script 部署成的 Web App URL
         const API_URL = 'https://script.google.com/macros/s/AKfycbx0-ikyOtM7oHhVhTS0YmYJirM8En8nFIrqywq3vHIPkLI9mswvV-qCeMlWNpgVGv84/exec';
         
         const ADMIN_PASSCODE = '1234';
         const DEFAULT_MONTHS = ['2026/03', '2026/04', '2026/05', '2026/06', '2026/07', '2026/08', '2026/09', '2026/10'];
-        const INITIAL_MEMBERS = [];
 
         let state = {
             months: [...DEFAULT_MONTHS],
@@ -408,14 +450,48 @@
                 updateAdminUI();
                 showToast('已登出管理員模式，進入唯讀狀態', 'info');
             } else {
-                const input = prompt('請輸入管理員密碼：');
-                if (input === ADMIN_PASSCODE) {
-                    state.isAdmin = true;
-                    updateAdminUI();
-                    showToast('管理員驗證成功！已解鎖編輯權限');
-                } else if (input !== null) {
-                    showToast('密碼錯誤，無法解鎖權限', 'error');
-                }
+                openAdminLoginModal();
+            }
+        }
+
+        function openAdminLoginModal() {
+            const input = document.getElementById('admin-password-input');
+            input.value = '';
+            document.getElementById('admin-login-modal').classList.remove('hidden');
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function closeAdminLoginModal() {
+            document.getElementById('admin-login-modal').classList.add('hidden');
+        }
+
+        function submitAdminLogin() {
+            const pwd = document.getElementById('admin-password-input').value;
+            if (pwd === ADMIN_PASSCODE) {
+                state.isAdmin = true;
+                updateAdminUI();
+                closeAdminLoginModal();
+                showToast('管理員 Henry 驗證成功！已解鎖編輯權限');
+            } else {
+                showToast('密碼錯誤，無法解鎖權限', 'error');
+            }
+        }
+
+        function handleAdminLoginKeydown(e) {
+            if (e.key === 'Enter') {
+                submitAdminLogin();
+            }
+        }
+
+        function togglePasswordVisibility() {
+            const input = document.getElementById('admin-password-input');
+            const icon = document.getElementById('eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-regular fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-regular fa-eye';
             }
         }
 
@@ -430,10 +506,10 @@
             if (state.isAdmin) {
                 btnToggle.className = "bg-emerald-500/20 text-emerald-300 text-xs lg:text-sm px-3.5 py-2 rounded-full border border-emerald-500/30 flex items-center gap-2";
                 icon.className = "fa-solid fa-lock-open text-emerald-400";
-                btnText.textContent = "管理員模式 (已開)";
+                btnText.textContent = "管理員: Henry";
                 btnAdd.classList.remove('hidden');
                 btnReset.classList.remove('hidden');
-                permHint.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 text-[10px]"></i> 已獲得管理員編輯權限`;
+                permHint.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 text-[10px]"></i> 已獲管理員 Henry 編輯權限`;
             } else {
                 btnToggle.className = "bg-amber-500/20 text-amber-300 text-xs lg:text-sm px-3.5 py-2 rounded-full border border-amber-500/30 flex items-center gap-2";
                 icon.className = "fa-solid fa-lock text-amber-400";
