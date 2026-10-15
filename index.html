@@ -36,11 +36,11 @@
 </head>
 <body class="min-h-screen flex flex-col p-2 md:p-6 text-sm relative">
 
-    <!-- 全局 Toast 通知 -->
-    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 hidden transition-all duration-300">
-        <div id="toast-body" class="bg-spCard border border-white/20 text-white text-xs px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2">
-            <i id="toast-icon" class="fa-solid fa-circle-info text-spGreen"></i>
-            <span id="toast-msg">通知訊息</span>
+    <!-- 全局 網站內 Toast 訊息通知 -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 hidden transition-all duration-300 pointer-events-none">
+        <div id="toast-body" class="bg-spCard/95 backdrop-blur border border-white/20 text-white text-xs px-5 py-3 rounded-full shadow-2xl flex items-center gap-2.5">
+            <i id="toast-icon" class="fa-solid fa-circle-info text-spGreen text-sm"></i>
+            <span id="toast-msg" class="font-medium">通知訊息</span>
         </div>
     </div>
 
@@ -143,7 +143,7 @@
             <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> 已繳交</span>
             <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span> 未繳/缺</span>
             <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-500"></span> 不需繳交 (X)</span>
-            <span class="flex items-center gap-1 ml-auto text-amber-500"><i class="fa-solid fa-lock"></i> 唯讀模式，登入後可編輯</span>
+            <span class="flex items-center gap-1 ml-auto text-amber-500"><i class="fa-solid fa-lock"></i> 唯讀模式，登入後可編輯/寄信</span>
         </div>
     </div>
 
@@ -176,7 +176,7 @@
     <div id="admin-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
             <h3 class="font-bold text-sm mb-1 text-amber-400 flex items-center gap-2"><i class="fa-solid fa-lock"></i> 管理員登入</h3>
-            <p class="text-xs text-gray-400 mb-4">請輸入解鎖密碼以開啟編輯功能</p>
+            <p class="text-xs text-gray-400 mb-4">請輸入解鎖密碼以開啟編輯與發信功能</p>
             <input type="password" id="admin-pass-input" onkeyup="if(event.key==='Enter') verifyAdminPass()" class="w-full bg-spHover text-white text-xs px-3 py-2 rounded border border-white/10 mb-4 focus:outline-none focus:border-amber-500" placeholder="解鎖密碼 (預設: 1234)">
             <div class="flex justify-end gap-2">
                 <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="px-4 py-1.5 text-xs text-gray-400">取消</button>
@@ -213,13 +213,13 @@
             fetchData();
         });
 
-        // 顯示輕量Toast通知
+        // 網站內小視窗 Toast 通知 (替代所有 alert)
         function showToast(msg, isSuccess = true) {
             const toast = document.getElementById('toast');
             const icon = document.getElementById('toast-icon');
             document.getElementById('toast-msg').innerText = msg;
             
-            icon.className = isSuccess ? "fa-solid fa-circle-check text-spGreen" : "fa-solid fa-circle-xmark text-rose-500";
+            icon.className = isSuccess ? "fa-solid fa-circle-check text-spGreen text-sm" : "fa-solid fa-circle-xmark text-rose-500 text-sm";
             toast.classList.remove('hidden');
             setTimeout(() => toast.classList.add('hidden'), 2500);
         }
@@ -264,15 +264,21 @@
             });
         }
 
-        // 觸發確認發送小視窗
+        // 觸發手動發信（包含管理員權限保護機制）
         function askSendEmail(email, name, month) {
+            // 【權限檢查】若非管理員，顯示 Toast 並中斷操作
+            if (!state.isAdmin) {
+                showToast('請先登入管理員身分才能發送催繳信', false);
+                return;
+            }
+
             state.pendingMailTarget = { email, name, month };
             document.getElementById('confirm-mail-msg').innerHTML = `確定要發送催繳信給 <span class="text-spGreen font-bold">${name}</span> (${email}) 嗎？`;
             document.getElementById('confirm-send-btn').onclick = executeSendEmail;
             document.getElementById('confirm-mail-modal').classList.remove('hidden');
         }
 
-        // 執行手動發送
+        // 執行手動發送信件
         function executeSendEmail() {
             document.getElementById('confirm-mail-modal').classList.add('hidden');
             if(!state.pendingMailTarget) return;
@@ -401,11 +407,15 @@
                     </div>`;
 
                 if(sInfo.type === 'unpaid' && m.email) {
+                    const btnStyle = state.isAdmin 
+                        ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30" 
+                        : "bg-gray-800 text-gray-500 border-gray-700 hover:bg-gray-700/50";
+
                     reminderList.innerHTML += `
                         <div class="flex justify-between items-center bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg">
                             <div><span class="font-bold text-rose-200">${m.name}</span> <span class="text-xs text-rose-400/80">(${m.email})</span></div>
-                            <button id="btn-mail-${m.email}" onclick="askSendEmail('${m.email}', '${m.name}', '${state.currMonth}')" class="px-3 py-1.5 text-[11px] rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 transition">
-                                <i class="fa-solid fa-envelope"></i> 發送催繳信
+                            <button id="btn-mail-${m.email}" onclick="askSendEmail('${m.email}', '${m.name}', '${state.currMonth}')" class="px-3 py-1.5 text-[11px] rounded border transition flex items-center gap-1.5 ${btnStyle}">
+                                <i class="fa-solid ${state.isAdmin ? 'fa-envelope' : 'fa-lock'}"></i> 發送催繳信
                             </button>
                         </div>`;
                 }
@@ -445,6 +455,7 @@
             } else {
                 document.getElementById('admin-pass-input').value = '';
                 document.getElementById('admin-modal').classList.remove('hidden');
+                setTimeout(() => document.getElementById('admin-pass-input').focus(), 100);
             }
         }
 
@@ -456,7 +467,7 @@
                 document.getElementById('admin-text').innerText = '已解鎖';
                 document.getElementById('admin-icon').className = 'fa-solid fa-unlock';
                 document.getElementById('admin-btn').className = "bg-spGreen/20 text-spGreen border border-spGreen/50 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2";
-                showToast('管理員權限已解鎖');
+                showToast('管理員權限已解鎖（已開啟編輯與發信功能）');
                 renderData();
             } else {
                 showToast('密碼錯誤，請重新輸入', false);
@@ -464,7 +475,7 @@
         }
 
         function openEdit(id) {
-            if(!state.isAdmin) return showToast('請先完成管理員登入', false);
+            if(!state.isAdmin) return showToast('請先登入管理員身分', false);
             state.editTarget = state.members.find(m => m.id === id);
             document.getElementById('modal-title').innerText = `編輯狀態 - ${state.editTarget.name}`;
             document.getElementById('modal-subtitle').innerText = `期數: ${state.currMonth}`;
