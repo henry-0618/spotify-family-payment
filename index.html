@@ -29,7 +29,6 @@
         th, td { white-space: nowrap; }
         .sticky-col { position: sticky; left: 0; background-color: #181818; z-index: 10; border-right: 1px solid #333; }
         
-        /* 狀態標籤樣式 */
         .badge-paid { background: rgba(29, 185, 84, 0.15); color: #1DB954; border: 1px solid rgba(29,185,84,0.3); }
         .badge-unpaid { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
         .badge-na { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(100,116,139,0.3); }
@@ -37,7 +36,6 @@
 </head>
 <body class="min-h-screen flex flex-col p-2 md:p-6 text-sm">
 
-    <!-- 頂部標題與狀態 -->
     <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-full bg-spGreen flex items-center justify-center text-black text-xl"><i class="fa-brands fa-spotify"></i></div>
@@ -60,13 +58,12 @@
         </div>
     </header>
 
-    <!-- 欠繳警告橫幅 -->
     <div id="unpaid-alert" class="hidden bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 mb-6 flex justify-between items-center">
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center"><i class="fa-solid fa-circle-exclamation"></i></div>
             <div>
-                <div class="font-bold text-rose-200" id="alert-title">本期有 1 位成員尚未完成繳費！</div>
-                <div class="text-xs text-rose-400/80 mt-0.5" id="alert-desc">未繳成員：... 點擊按鈕一鍵催繳</div>
+                <div class="font-bold text-rose-200" id="alert-title">本期有成員尚未完成繳費！</div>
+                <div class="text-xs text-rose-400/80 mt-0.5" id="alert-desc">點擊按鈕一鍵催繳</div>
             </div>
         </div>
         <button onclick="switchTab('reminder')" class="bg-rose-500/20 text-rose-200 border border-rose-500/50 px-3 py-1.5 rounded-lg text-xs hover:bg-rose-500/30">
@@ -74,7 +71,6 @@
         </button>
     </div>
 
-    <!-- 數據卡片 -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-spCard p-4 rounded-xl border border-white/5 relative">
             <i class="fa-solid fa-user-group absolute top-4 right-4 text-spGreen/50 text-xl"></i>
@@ -102,7 +98,6 @@
         </div>
     </div>
 
-    <!-- 篩選與頁籤列 -->
     <div class="flex flex-col md:flex-row justify-between gap-4 mb-4 bg-spCard p-2 rounded-xl border border-white/5">
         <div class="relative flex-1 max-w-md">
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
@@ -122,7 +117,6 @@
         </div>
     </div>
 
-    <!-- 內容區域：全覽矩陣 (圖二版) -->
     <div id="view-matrix" class="bg-spCard rounded-xl border border-white/5 overflow-hidden">
         <div class="table-container hide-scrollbar" id="matrix-scroll">
             <table class="w-full text-left text-xs">
@@ -130,7 +124,6 @@
                     <tr>
                         <th class="p-3 sticky-col">成員姓名</th>
                         <th class="p-3 border-r border-white/5">EMAIL</th>
-                        <!-- 月份由 JS 動態生成 -->
                         <th id="th-months-placeholder"></th>
                         <th class="p-3 text-center bg-black/40 sticky right-0 shadow-[-5px_0_10px_rgba(0,0,0,0.5)]">操作</th>
                     </tr>
@@ -142,20 +135,17 @@
             <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> 已繳交</span>
             <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span> 未繳/缺</span>
             <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-500"></span> 不需繳交 (X)</span>
-            <span class="flex items-center gap-1 ml-auto text-amber-500"><i class="fa-solid fa-lock"></i> 目前為唯讀模式，管理員登入後可編輯</span>
+            <span class="flex items-center gap-1 ml-auto text-amber-500"><i class="fa-solid fa-lock"></i> 唯讀模式，登入後可編輯</span>
         </div>
     </div>
 
-    <!-- 內容區域：成員卡片 -->
     <div id="view-cards" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
 
-    <!-- 內容區域：催繳助手 (含手動寄信) -->
     <div id="view-reminder" class="hidden bg-spCard rounded-xl border border-white/5 p-5">
         <h3 class="font-bold text-rose-400 mb-4 flex items-center gap-2"><i class="fa-solid fa-paper-plane"></i> 催繳信件手動發送</h3>
         <div id="reminder-list" class="space-y-3"></div>
     </div>
 
-    <!-- 編輯 Modal -->
     <div id="edit-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
             <h3 class="font-bold text-sm mb-1" id="modal-title">編輯狀態</h3>
@@ -174,7 +164,8 @@
     </div>
 
     <script>
-        const API_URL = 'https://script.google.com/macros/s/AKfycbz4iOOoBwhrTgn4nOLpG1dZxaVi7xMmRFO3qrxDsscvE3-dolLdQqJMkHzmovso7HqyfQ/exec'; 
+        // 請確保貼上您的 Google Apps Script Web App API 網址
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwMX_ZNq__KQ8ntHgitzgvjpT9OahTBbcqG9XrernETbympsVY-6T9KfMvQWcTPmsFC/exec'; 
         const ADMIN_PASS = '1234';
         
         let state = {
@@ -192,7 +183,7 @@
         async function fetchData() {
             setSyncStatus('同步中...', 'fa-spin fa-spinner', 'text-amber-400');
             try {
-                const res = await fetch(API_URL);
+                const res = await fetch(API_URL, { redirect: 'follow' });
                 const data = await res.json();
                 state.members = data.members || [];
                 state.months = data.months || [];
@@ -201,25 +192,24 @@
                 renderData();
                 setSyncStatus('已與 API 雲端同步', 'fa-cloud', 'text-emerald-400');
                 
-                // 手機版：自動捲動到最右邊(最新月份)
                 setTimeout(() => {
                     const scrollArea = document.getElementById('matrix-scroll');
                     if(scrollArea) scrollArea.scrollLeft = scrollArea.scrollWidth;
                 }, 100);
             } catch(e) {
-                setSyncStatus('連線失敗', 'fa-cloud-offline', 'text-rose-400');
+                setSyncStatus('連線失敗或資料格式錯誤', 'fa-cloud-offline', 'text-rose-400');
+                console.error(e);
             }
         }
 
-        // 樂觀寫入
         function saveToAPI() {
             setSyncStatus('儲存中...', 'fa-spin fa-spinner', 'text-amber-400');
-            fetch(API_URL, { method: 'POST', body: JSON.stringify({ members: state.members, months: state.months }) })
+            fetch(API_URL, { method: 'POST', redirect: 'follow', body: JSON.stringify({ members: state.members, months: state.months }) })
                 .then(() => setSyncStatus('已與 API 雲端同步', 'fa-cloud', 'text-emerald-400'))
                 .catch(() => setSyncStatus('儲存失敗', 'fa-triangle-exclamation', 'text-rose-400'));
         }
 
-        // 手動寄信 API
+        // 手動發送催繳信
         function sendManualEmail(email, name, month) {
             if(!confirm(`確定要發送催繳信給 ${name} 嗎？`)) return;
             const btn = document.getElementById(`btn-mail-${email}`);
@@ -229,11 +219,11 @@
             const payload = {
                 action: 'send_manual_email',
                 to: email,
-                subject: `【繳費提醒】${month} 月份 Spotify 尚未繳費`,
-                body: `嗨 ${name}，\n\n提醒您，您 ${month} 月份的 Spotify 家庭方案費用尚未繳交喔！\n再麻煩撥空處理，謝謝！\n\n--\nspotify繳費提醒系統`
+                subject: `【Spotify費用繳交提醒】`,
+                body: `${name}您好，\n提醒您，您 ${month} 月份的 Spotify 家庭方案費用尚未繳交，請記得將50元繳交給我喔！感謝\n\n繳費紀錄查詢：https://spotify-family-payment.henrywang06180.workers.dev/\n*如繳費紀錄登記有誤請告知我更正\n========================================================\n\n此信件由spotify繳費提醒系統寄出，請勿直接回覆。\nspotify繳費提醒系統 By浚穠`
             };
 
-            fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) })
+            fetch(API_URL, { method: 'POST', redirect: 'follow', body: JSON.stringify(payload) })
                 .then(res => res.json())
                 .then(data => {
                     if(data.success) {
@@ -284,23 +274,19 @@
 
         function renderData() {
             const keyword = document.getElementById('search').value.toLowerCase();
-            const filtered = state.members.filter(m => m.name.toLowerCase().includes(keyword) || m.email.toLowerCase().includes(keyword));
+            const filtered = state.members.filter(m => m.name.toLowerCase().includes(keyword) || (m.email && m.email.toLowerCase().includes(keyword)));
             
             let stats = { paid: 0, unpaid: 0, na: 0, unpaidNames: [] };
             
-            // 渲染全覽矩陣表頭
             const theadMonths = document.getElementById('th-months-placeholder');
             theadMonths.outerHTML = state.months.map(m => `<th class="p-3 text-center min-w-[90px] ${m===state.currMonth ? 'bg-white/5' : ''}">${m}</th>`).join('');
 
-            // 渲染全覽矩陣
             const tbody = document.getElementById('matrix-body');
             tbody.innerHTML = '';
             
-            // 渲染成員卡片
             const cards = document.getElementById('view-cards');
             cards.innerHTML = '';
 
-            // 渲染催繳助手
             const reminderList = document.getElementById('reminder-list');
             reminderList.innerHTML = '';
 
@@ -312,7 +298,6 @@
                 else if(sInfo.type === 'unpaid') { stats.unpaid++; stats.unpaidNames.push(m.name); }
                 else stats.na++;
 
-                // 矩陣 Row[cite: 5]
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-white/5 transition group";
                 let rowHTML = `<td class="p-3 sticky-col flex items-center gap-2"><div class="w-6 h-6 rounded-full bg-spHover text-spGreen flex items-center justify-center font-bold text-[10px]">${m.name[0]}</div> ${m.name}</td>`;
@@ -327,7 +312,6 @@
                 tr.innerHTML = rowHTML;
                 tbody.appendChild(tr);
 
-                // 卡片[cite: 5]
                 cards.innerHTML += `
                     <div class="bg-spCard p-4 rounded-xl border border-white/5 flex justify-between items-center">
                         <div class="flex items-center gap-3">
@@ -343,7 +327,6 @@
                         </div>
                     </div>`;
 
-                // 催繳助手列表 (只顯示未繳)
                 if(sInfo.type === 'unpaid' && m.email) {
                     reminderList.innerHTML += `
                         <div class="flex justify-between items-center bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg">
@@ -355,7 +338,6 @@
                 }
             });
 
-            // 更新數據
             document.getElementById('stat-total').innerText = filtered.length;
             document.getElementById('stat-paid').innerText = stats.paid;
             document.getElementById('stat-unpaid').innerText = stats.unpaid;
@@ -378,7 +360,6 @@
             }
         }
 
-        // 編輯相關
         function toggleAdmin() {
             if(state.isAdmin) {
                 state.isAdmin = false;
@@ -412,8 +393,8 @@
         function saveEdit() {
             state.editTarget.records[state.currMonth] = document.getElementById('modal-input').value;
             document.getElementById('edit-modal').classList.add('hidden');
-            renderData(); // 樂觀更新前端畫面
-            saveToAPI();  // 背景寫入試算表
+            renderData();
+            saveToAPI();
         }
     </script>
 </body>
