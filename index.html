@@ -291,10 +291,8 @@
             const payload = {
                 action: 'send_manual_email',
                 to: email,
-                subject: `【Spotify費用繳交提醒】`,
-                body: `${name}您好，\n提醒您，您 ${month} 月份的 Spotify 家庭方案費用尚未繳交，請記得將50元繳交給我喔！感謝\n\n繳費紀錄查詢：https://spotify-family-payment.henrywang06180.workers.dev/\n*如繳費紀錄登記有誤請告知我更正\n========================================================\n\n此信件由spotify繳費提醒系統寄出，請勿直接回覆。\nspotify繳費提醒系統 By浚穠`
-            };
-
+                subject: `【繳費提醒】記得繳交${currentMonthStr} 月份 Spotify 費用`,
+                body: `嗨 ${name}，\n 你尚未繳交本月份(${currentMonthStr} )Spotify訂閱費，請記得將50元繳交給我喔！感謝\n\n繳費紀錄查詢：https://spotify-family-payment.henrywang06180.workers.dev/\n*如繳費紀錄登記有誤請告知我更正\n========================================================\n\n此信件由spotify繳費提醒系統寄出，請勿直接回覆。\nspotify繳費提醒系統 By浚穠`
             fetch(API_URL, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
