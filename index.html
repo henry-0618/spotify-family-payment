@@ -34,7 +34,15 @@
         .badge-na { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(100,116,139,0.3); }
     </style>
 </head>
-<body class="min-h-screen flex flex-col p-2 md:p-6 text-sm">
+<body class="min-h-screen flex flex-col p-2 md:p-6 text-sm relative">
+
+    <!-- 全局 Toast 通知 -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 hidden transition-all duration-300">
+        <div id="toast-body" class="bg-spCard border border-white/20 text-white text-xs px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2">
+            <i id="toast-icon" class="fa-solid fa-circle-info text-spGreen"></i>
+            <span id="toast-msg">通知訊息</span>
+        </div>
+    </div>
 
     <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
         <div class="flex items-center gap-3">
@@ -146,6 +154,7 @@
         <div id="reminder-list" class="space-y-3"></div>
     </div>
 
+    <!-- 1. 編輯狀態 Modal -->
     <div id="edit-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
             <h3 class="font-bold text-sm mb-1" id="modal-title">編輯狀態</h3>
@@ -163,15 +172,39 @@
         </div>
     </div>
 
+    <!-- 2. 管理員登入 Modal (替代 prompt) -->
+    <div id="admin-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
+            <h3 class="font-bold text-sm mb-1 text-amber-400 flex items-center gap-2"><i class="fa-solid fa-lock"></i> 管理員登入</h3>
+            <p class="text-xs text-gray-400 mb-4">請輸入解鎖密碼以開啟編輯功能</p>
+            <input type="password" id="admin-pass-input" onkeyup="if(event.key==='Enter') verifyAdminPass()" class="w-full bg-spHover text-white text-xs px-3 py-2 rounded border border-white/10 mb-4 focus:outline-none focus:border-amber-500" placeholder="解鎖密碼 (預設: 1234)">
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="px-4 py-1.5 text-xs text-gray-400">取消</button>
+                <button onclick="verifyAdminPass()" class="px-4 py-1.5 text-xs bg-amber-500 text-black font-bold rounded">登入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 確認手動發送 Modal (替代 confirm) -->
+    <div id="confirm-mail-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
+            <h3 class="font-bold text-sm mb-1 text-rose-400 flex items-center gap-2"><i class="fa-solid fa-envelope"></i> 確認發送催繳信件</h3>
+            <p class="text-xs text-gray-300 my-3" id="confirm-mail-msg">確定要發送催繳信件嗎？</p>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="document.getElementById('confirm-mail-modal').classList.add('hidden')" class="px-4 py-1.5 text-xs text-gray-400">取消</button>
+                <button id="confirm-send-btn" class="px-4 py-1.5 text-xs bg-rose-500 text-white font-bold rounded">確定發送</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // 請確保貼上您的 Google Apps Script Web App API 網址
         const API_URL = 'https://script.google.com/macros/s/AKfycbwMX_ZNq__KQ8ntHgitzgvjpT9OahTBbcqG9XrernETbympsVY-6T9KfMvQWcTPmsFC/exec'; 
         const ADMIN_PASS = '1234';
         
         let state = {
             members: [], months: [],
             currMonth: '', activeTab: 'matrix', isAdmin: false,
-            editTarget: null
+            editTarget: null, pendingMailTarget: null
         };
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -179,6 +212,17 @@
             document.getElementById('today-date').innerText = `今日：${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
             fetchData();
         });
+
+        // 顯示輕量Toast通知
+        function showToast(msg, isSuccess = true) {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            document.getElementById('toast-msg').innerText = msg;
+            
+            icon.className = isSuccess ? "fa-solid fa-circle-check text-spGreen" : "fa-solid fa-circle-xmark text-rose-500";
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 2500);
+        }
 
         async function fetchData() {
             setSyncStatus('同步中...', 'fa-spin fa-spinner', 'text-amber-400');
@@ -204,14 +248,36 @@
 
         function saveToAPI() {
             setSyncStatus('儲存中...', 'fa-spin fa-spinner', 'text-amber-400');
-            fetch(API_URL, { method: 'POST', redirect: 'follow', body: JSON.stringify({ members: state.members, months: state.months }) })
-                .then(() => setSyncStatus('已與 API 雲端同步', 'fa-cloud', 'text-emerald-400'))
-                .catch(() => setSyncStatus('儲存失敗', 'fa-triangle-exclamation', 'text-rose-400'));
+            fetch(API_URL, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                redirect: 'follow', 
+                body: JSON.stringify({ members: state.members, months: state.months }) 
+            })
+            .then(() => {
+                setSyncStatus('已與 API 雲端同步', 'fa-cloud', 'text-emerald-400');
+                showToast('資料已成功變更並儲存');
+            })
+            .catch(() => {
+                setSyncStatus('儲存失敗', 'fa-triangle-exclamation', 'text-rose-400');
+                showToast('寫入後端失敗', false);
+            });
         }
 
-        // 手動發送催繳信
-        function sendManualEmail(email, name, month) {
-            if(!confirm(`確定要發送催繳信給 ${name} 嗎？`)) return;
+        // 觸發確認發送小視窗
+        function askSendEmail(email, name, month) {
+            state.pendingMailTarget = { email, name, month };
+            document.getElementById('confirm-mail-msg').innerHTML = `確定要發送催繳信給 <span class="text-spGreen font-bold">${name}</span> (${email}) 嗎？`;
+            document.getElementById('confirm-send-btn').onclick = executeSendEmail;
+            document.getElementById('confirm-mail-modal').classList.remove('hidden');
+        }
+
+        // 執行手動發送
+        function executeSendEmail() {
+            document.getElementById('confirm-mail-modal').classList.add('hidden');
+            if(!state.pendingMailTarget) return;
+
+            const { email, name, month } = state.pendingMailTarget;
             const btn = document.getElementById(`btn-mail-${email}`);
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 發送中...`;
             btn.disabled = true;
@@ -223,18 +289,25 @@
                 body: `${name}您好，\n提醒您，您 ${month} 月份的 Spotify 家庭方案費用尚未繳交，請記得將50元繳交給我喔！感謝\n\n繳費紀錄查詢：https://spotify-family-payment.henrywang06180.workers.dev/\n*如繳費紀錄登記有誤請告知我更正\n========================================================\n\n此信件由spotify繳費提醒系統寄出，請勿直接回覆。\nspotify繳費提醒系統 By浚穠`
             };
 
-            fetch(API_URL, { method: 'POST', redirect: 'follow', body: JSON.stringify(payload) })
-                .then(res => res.json())
-                .then(data => {
-                    if(data.success) {
-                        btn.innerHTML = `<i class="fa-solid fa-check"></i> 已發送`;
-                        btn.className = "px-3 py-1.5 text-[11px] rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-                    } else throw new Error();
-                }).catch(() => {
-                    btn.innerHTML = `<i class="fa-solid fa-xmark"></i> 發送失敗`;
-                    btn.className = "px-3 py-1.5 text-[11px] rounded bg-rose-500/20 text-rose-400 border border-rose-500/30";
-                    btn.disabled = false;
-                });
+            fetch(API_URL, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                redirect: 'follow', 
+                body: JSON.stringify(payload) 
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    btn.innerHTML = `<i class="fa-solid fa-check"></i> 已發送`;
+                    btn.className = "px-3 py-1.5 text-[11px] rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                    showToast(`催繳信件已成功發送給 ${name}`);
+                } else throw new Error(data.error);
+            }).catch(err => {
+                btn.innerHTML = `<i class="fa-solid fa-xmark"></i> 發送失敗`;
+                btn.className = "px-3 py-1.5 text-[11px] rounded bg-rose-500/20 text-rose-400 border border-rose-500/30";
+                btn.disabled = false;
+                showToast(`發送失敗: ${err.message || '連線錯誤'}`, false);
+            });
         }
 
         function setSyncStatus(text, icon, colorClass) {
@@ -331,7 +404,7 @@
                     reminderList.innerHTML += `
                         <div class="flex justify-between items-center bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg">
                             <div><span class="font-bold text-rose-200">${m.name}</span> <span class="text-xs text-rose-400/80">(${m.email})</span></div>
-                            <button id="btn-mail-${m.email}" onclick="sendManualEmail('${m.email}', '${m.name}', '${state.currMonth}')" class="px-3 py-1.5 text-[11px] rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 transition">
+                            <button id="btn-mail-${m.email}" onclick="askSendEmail('${m.email}', '${m.name}', '${state.currMonth}')" class="px-3 py-1.5 text-[11px] rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 transition">
                                 <i class="fa-solid fa-envelope"></i> 發送催繳信
                             </button>
                         </div>`;
@@ -360,27 +433,38 @@
             }
         }
 
+        // 管理員切換邏輯
         function toggleAdmin() {
             if(state.isAdmin) {
                 state.isAdmin = false;
                 document.getElementById('admin-text').innerText = '管理員登入';
                 document.getElementById('admin-icon').className = 'fa-solid fa-lock';
                 document.getElementById('admin-btn').className = "bg-amber-600/20 text-amber-500 border border-amber-600/50 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 transition hover:bg-amber-600/30";
+                showToast('已登出管理員身分');
                 renderData();
             } else {
-                const pass = prompt('請輸入管理員密碼 (1234):');
-                if(pass === ADMIN_PASS) {
-                    state.isAdmin = true;
-                    document.getElementById('admin-text').innerText = '已解鎖';
-                    document.getElementById('admin-icon').className = 'fa-solid fa-unlock';
-                    document.getElementById('admin-btn').className = "bg-spGreen/20 text-spGreen border border-spGreen/50 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2";
-                    renderData();
-                } else if(pass !== null) alert('密碼錯誤');
+                document.getElementById('admin-pass-input').value = '';
+                document.getElementById('admin-modal').classList.remove('hidden');
+            }
+        }
+
+        function verifyAdminPass() {
+            const pass = document.getElementById('admin-pass-input').value;
+            if(pass === ADMIN_PASS) {
+                state.isAdmin = true;
+                document.getElementById('admin-modal').classList.add('hidden');
+                document.getElementById('admin-text').innerText = '已解鎖';
+                document.getElementById('admin-icon').className = 'fa-solid fa-unlock';
+                document.getElementById('admin-btn').className = "bg-spGreen/20 text-spGreen border border-spGreen/50 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2";
+                showToast('管理員權限已解鎖');
+                renderData();
+            } else {
+                showToast('密碼錯誤，請重新輸入', false);
             }
         }
 
         function openEdit(id) {
-            if(!state.isAdmin) return alert('請先登入管理員');
+            if(!state.isAdmin) return showToast('請先完成管理員登入', false);
             state.editTarget = state.members.find(m => m.id === id);
             document.getElementById('modal-title').innerText = `編輯狀態 - ${state.editTarget.name}`;
             document.getElementById('modal-subtitle').innerText = `期數: ${state.currMonth}`;
