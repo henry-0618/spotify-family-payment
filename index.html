@@ -1,574 +1,71 @@
-<!DOCTYPE html>
-<html lang="zh-TW" class="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Spotify Premium family 費用繳交紀錄表</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        spGreen: '#1DB954',
-                        spDark: '#121212',
-                        spCard: '#181818',
-                        spHover: '#282828'
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #121212; color: #fff; }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .table-container { overflow-x: auto; scroll-behavior: smooth; }
-        th, td { white-space: nowrap; }
-        .sticky-col { position: sticky; left: 0; background-color: #181818; z-index: 10; border-right: 1px solid #333; }
-        
-        .badge-paid { background: rgba(29, 185, 84, 0.15); color: #1DB954; border: 1px solid rgba(29,185,84,0.3); }
-        .badge-unpaid { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
-        .badge-na { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(100,116,139,0.3); }
-    </style>
-</head>
-<body class="min-h-screen flex flex-col p-2 md:p-6 text-sm relative">
+const SHEET_NAME = '繳交紀錄公告'; // ⚠️ 請確保您的試算表下方分頁名稱改成這個！
+const LOG_SHEET_NAME = '寄信紀錄';
+const SETTINGS_SHEET_NAME = '設定'; // 新增：用來存公告的工作表
+const SENDER_NAME = 'Spotify繳費提醒系統';
 
-    <!-- 全局 網站內 Toast 訊息通知 -->
-    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 hidden transition-all duration-300 pointer-events-none">
-        <div id="toast-body" class="bg-spCard/95 backdrop-blur border border-white/20 text-white text-xs px-5 py-3 rounded-full shadow-2xl flex items-center gap-2.5">
-            <i id="toast-icon" class="fa-solid fa-circle-info text-spGreen text-sm"></i>
-            <span id="toast-msg" class="font-medium">通知訊息</span>
-        </div>
-    </div>
+function getSheet() { return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME); }
 
-    <header class="flex justify-between items-center mb-6 flex-wrap gap-4">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-spGreen flex items-center justify-center text-black text-xl"><i class="fa-brands fa-spotify"></i></div>
-            <div>
-                <h1 class="text-lg font-bold flex items-center gap-2">Spotify Premium family <span class="bg-white/10 text-[10px] px-2 py-0.5 rounded-full text-gray-300">費用繳交紀錄表</span></h1>
-                <p class="text-xs text-gray-400 mt-1 flex items-center gap-2">
-                    <span id="sync-status" class="text-emerald-400"><i class="fa-solid fa-cloud"></i> 已與 API 雲端同步</span>
-                    <span>•</span>
-                    <span id="today-date"></span>
-                </p>
-            </div>
-        </div>
-        <div class="flex gap-2">
-            <button onclick="toggleAdmin()" id="admin-btn" class="bg-amber-600/20 text-amber-500 border border-amber-600/50 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 transition hover:bg-amber-600/30">
-                <i class="fa-solid fa-lock" id="admin-icon"></i> <span id="admin-text">管理員登入</span>
-            </button>
-            <button class="bg-white/10 text-white px-4 py-1.5 rounded-full text-xs hover:bg-white/20 transition flex items-center gap-2">
-                <i class="fa-solid fa-file-csv text-spGreen"></i> 匯出 CSV
-            </button>
-        </div>
-    </header>
+function getLogSheet() { 
+  let ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(LOG_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(LOG_SHEET_NAME);
+    sheet.appendRow(['時間', '收件人', '信件標題', '狀態', '信件內容']);
+  }
+  return sheet;
+}
 
-    <!-- 公告區塊 (預設隱藏，有公告或管理員登入時顯示) -->
-    <div id="announcement-section" class="hidden bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-4 mb-4 flex justify-between items-center transition-all">
-        <div class="flex items-start gap-3 w-full">
-            <div class="w-8 h-8 shrink-0 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center mt-0.5"><i class="fa-solid fa-bullhorn"></i></div>
-            <div class="w-full">
-                <div class="font-bold text-indigo-200 flex justify-between items-center">
-                    <span>最新公告</span>
-                    <button id="btn-edit-announcement" onclick="openAnnouncementEdit()" class="hidden bg-indigo-500/20 text-indigo-200 border border-indigo-500/50 px-3 py-1 rounded-lg text-xs hover:bg-indigo-500/30 transition">
-                        <i class="fa-solid fa-pen mr-1"></i> 編輯公告
-                    </button>
-                </div>
-                <div class="text-xs text-indigo-100/80 mt-1 whitespace-pre-wrap leading-relaxed" id="announcement-text">目前無公告。</div>
-            </div>
-        </div>
-    </div>
+// 新增：取得或自動建立設定工作表
+function getSettingsSheet() {
+  let ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SETTINGS_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SETTINGS_SHEET_NAME);
+    sheet.getRange("A1").setValue("公告");
+  }
+  return sheet;
+}
 
-    <!-- 欠繳提示區塊 -->
-    <div id="unpaid-alert" class="hidden bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 mb-6 flex justify-between items-center">
-        <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center"><i class="fa-solid fa-circle-exclamation"></i></div>
-            <div>
-                <div class="font-bold text-rose-200" id="alert-title">本期有成員尚未完成繳費！</div>
-                <div class="text-xs text-rose-400/80 mt-0.5" id="alert-desc">點擊按鈕一鍵催繳</div>
-            </div>
-        </div>
-        <button onclick="switchTab('reminder')" class="bg-rose-500/20 text-rose-200 border border-rose-500/50 px-3 py-1.5 rounded-lg text-xs hover:bg-rose-500/30">
-            <i class="fa-brands fa-line text-spGreen mr-1"></i> 一鍵生成催繳訊息
-        </button>
-    </div>
+// ================= 紀錄信件 =================
+function logEmail(email, subject, status, body) {
+  const sheet = getLogSheet();
+  sheet.appendRow([new Date(), email, subject, status, body || '']);
+}
 
-    <!-- 統計數據卡片 -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-spCard p-4 rounded-xl border border-white/5 relative">
-            <i class="fa-solid fa-user-group absolute top-4 right-4 text-spGreen/50 text-xl"></i>
-            <div class="text-xs text-gray-400">家庭組總人數</div>
-            <div class="text-3xl font-bold mt-2" id="stat-total">0</div>
-            <div class="text-[10px] text-spGreen mt-2 flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> 主帳號 6 人上限中</div>
-        </div>
-        <div class="bg-spCard p-4 rounded-xl border border-white/5 relative">
-            <i class="fa-solid fa-circle-check absolute top-4 right-4 text-emerald-500/50 text-xl"></i>
-            <div class="text-xs text-gray-400"><span class="current-month-label"></span> 已繳交</div>
-            <div class="text-3xl font-bold mt-2 text-emerald-400" id="stat-paid">0</div>
-            <div class="text-[10px] text-gray-400 mt-2" id="stat-paid-desc">目標達成率 -</div>
-        </div>
-        <div class="bg-spCard p-4 rounded-xl border border-rose-500/20 relative">
-            <i class="fa-solid fa-clock absolute top-4 right-4 text-rose-500/50 text-xl"></i>
-            <div class="text-xs text-gray-400"><span class="current-month-label"></span> 未繳/缺</div>
-            <div class="text-3xl font-bold mt-2 text-rose-400" id="stat-unpaid">0</div>
-            <div class="text-[10px] text-rose-400/70 mt-2 truncate" id="stat-unpaid-names">待催繳：無</div>
-        </div>
-        <div class="bg-spCard p-4 rounded-xl border border-white/5 relative">
-            <i class="fa-solid fa-user-minus absolute top-4 right-4 text-slate-400/50 text-xl"></i>
-            <div class="text-xs text-gray-400">不需繳費/未加入</div>
-            <div class="text-3xl font-bold mt-2 text-slate-300" id="stat-na">0</div>
-            <div class="text-[10px] text-gray-400 mt-2">標記為 X 的期數</div>
-        </div>
-    </div>
+// ================= 處理 GET (讀取資料給網頁) =================
+function doGet(e) {
+  try {
+    const sheet = getSheet();
+    if (!sheet) throw new Error("找不到工作表");
+    
+    // 讀取公告
+    const settingsSheet = getSettingsSheet();
+    const announcement = settingsSheet.getRange("B1").getValue() || "";
+    
+    const data = sheet.getDataRange().getDisplayValues();
+    if (data.length < 3) return createJsonResponse({ members: [], months: [], announcement });
 
-    <!-- 搜尋與頁籤控制器 -->
-    <div class="flex flex-col md:flex-row justify-between gap-4 mb-4 bg-spCard p-2 rounded-xl border border-white/5">
-        <div class="relative flex-1 max-w-md">
-            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-            <input type="text" id="search" oninput="renderData()" placeholder="搜尋姓名或 Email..." class="w-full bg-spHover text-white text-xs pl-8 pr-3 py-2 rounded-lg border-none focus:ring-1 focus:ring-spGreen">
-        </div>
-        <div class="flex items-center gap-3 overflow-x-auto hide-scrollbar">
-            <div class="flex items-center gap-2 text-xs shrink-0">
-                <span class="text-gray-400"><i class="fa-regular fa-calendar"></i> 期數:</span>
-                <select id="month-select" onchange="changeMonth()" class="bg-spHover border-none text-white rounded-lg py-1.5 px-2 focus:ring-1 focus:ring-spGreen"></select>
-            </div>
-            <div class="h-6 w-px bg-white/10 mx-1 shrink-0"></div>
-            <div class="flex bg-spHover p-1 rounded-lg shrink-0">
-                <button onclick="switchTab('matrix')" id="tab-matrix" class="px-3 py-1 text-xs rounded-md bg-spGreen text-black font-bold flex items-center gap-1.5 transition"><i class="fa-solid fa-table-cells"></i> 全覽矩陣</button>
-                <button onclick="switchTab('cards')" id="tab-cards" class="px-3 py-1 text-xs rounded-md text-gray-400 hover:text-white transition flex items-center gap-1.5"><i class="fa-regular fa-id-card"></i> 成員卡片</button>
-                <button onclick="switchTab('reminder')" id="tab-reminder" class="px-3 py-1 text-xs rounded-md text-gray-400 hover:text-white transition flex items-center gap-1.5"><i class="fa-solid fa-bell"></i> 催繳助手 <span class="w-1.5 h-1.5 rounded-full bg-rose-500 hidden" id="reminder-dot"></span></button>
-            </div>
-        </div>
-    </div>
+    const headerIndex = 2; // 第 3 列
+    const months = data[headerIndex].slice(3).filter(String);
+    const members = [];
+    
+    for (let i = 3; i < data.length; i++) {
+      const row = data[i];
+      if (!row[1]) continue; 
+      const member = { id: 'mem_' + i, name: row[1], email: row[2], records: {} };
+      months.forEach((month, index) => { member.records[month] = row[index + 3] || ''; });
+      members.push(member);
+    }
+    
+    // 回傳資料加上 announcement
+    return createJsonResponse({ members, months, announcement });
+  } catch (error) { return createJsonResponse({ error: error.message }, 500); }
+}
 
-    <!-- 檢視：全覽矩陣 -->
-    <div id="view-matrix" class="bg-spCard rounded-xl border border-white/5 overflow-hidden">
-        <div class="table-container hide-scrollbar" id="matrix-scroll">
-            <table class="w-full text-left text-xs">
-                <thead class="bg-black/40 text-gray-400 border-b border-white/5">
-                    <tr>
-                        <th class="p-3 sticky-col">成員姓名</th>
-                        <th class="p-3 border-r border-white/5">EMAIL</th>
-                        <th id="th-months-placeholder"></th>
-                        <th class="p-3 text-center bg-black/40 sticky right-0 shadow-[-5px_0_10px_rgba(0,0,0,0.5)]">操作</th>
-                    </tr>
-                </thead>
-                <tbody id="matrix-body" class="divide-y divide-white/5"></tbody>
-            </table>
-        </div>
-        <div class="bg-black/60 p-2.5 text-[10px] text-gray-400 flex gap-4 border-t border-white/5">
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> 已繳交</span>
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span> 未繳/缺</span>
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-500"></span> 不需繳交 (X)</span>
-            <span class="flex items-center gap-1 ml-auto text-amber-500"><i class="fa-solid fa-lock"></i> 唯讀模式，登入後可編輯/寄信</span>
-        </div>
-    </div>
-
-    <!-- 檢視：卡片模式 -->
-    <div id="view-cards" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-
-    <!-- 檢視：催繳助手 -->
-    <div id="view-reminder" class="hidden bg-spCard rounded-xl border border-white/5 p-5">
-        <h3 class="font-bold text-rose-400 mb-4 flex items-center gap-2"><i class="fa-solid fa-paper-plane"></i> 催繳信件手動發送</h3>
-        <div id="reminder-list" class="space-y-3"></div>
-    </div>
-
-    <!-- Modal 1: 編輯繳費狀態 -->
-    <div id="edit-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
-            <h3 class="font-bold text-sm mb-1" id="modal-title">編輯狀態</h3>
-            <p class="text-xs text-gray-400 mb-4" id="modal-subtitle"></p>
-            <div class="grid grid-cols-2 gap-2 mb-3">
-                <button onclick="setModalVal('已繳交')" class="py-2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs">已繳交</button>
-                <button onclick="setModalVal('未繳交')" class="py-2 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs">未繳交</button>
-                <button onclick="setModalVal('X')" class="col-span-2 py-2 rounded bg-slate-800 text-slate-400 border border-slate-600 text-xs">免繳交 (X)</button>
-            </div>
-            <input type="text" id="modal-input" class="w-full bg-spHover text-white text-xs px-3 py-2 rounded border border-white/10 mb-4" placeholder="或手動輸入註記...">
-            <div class="flex justify-end gap-2">
-                <button onclick="document.getElementById('edit-modal').classList.add('hidden')" class="px-4 py-1.5 text-xs text-gray-400">取消</button>
-                <button onclick="saveEdit()" class="px-4 py-1.5 text-xs bg-spGreen text-black font-bold rounded">儲存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal 2: 管理員登入 -->
-    <div id="admin-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
-            <h3 class="font-bold text-sm mb-1 text-amber-400 flex items-center gap-2"><i class="fa-solid fa-lock"></i> 管理員登入</h3>
-            <p class="text-xs text-gray-400 mb-4">浚穠你好，請輸入解鎖密碼以開啟編輯與發信功能</p>
-            <input type="password" id="admin-pass-input" onkeyup="if(event.key==='Enter') verifyAdminPass()" class="w-full bg-spHover text-white text-xs px-3 py-2 rounded border border-white/10 mb-4 focus:outline-none focus:border-amber-500" placeholder="解鎖密碼">
-            <div class="flex justify-end gap-2">
-                <button onclick="document.getElementById('admin-modal').classList.add('hidden')" class="px-4 py-1.5 text-xs text-gray-400">取消</button>
-                <button onclick="verifyAdminPass()" class="px-4 py-1.5 text-xs bg-amber-500 text-black font-bold rounded">登入</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal 3: 確認手動發送信件 -->
-    <div id="confirm-mail-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
-            <h3 class="font-bold text-sm mb-1 text-rose-400 flex items-center gap-2"><i class="fa-solid fa-envelope"></i> 確認發送催繳信件</h3>
-            <p class="text-xs text-gray-300 my-3" id="confirm-mail-msg">確定要發送催繳信件嗎？</p>
-            <div class="flex justify-end gap-2 pt-2">
-                <button onclick="document.getElementById('confirm-mail-modal').classList.add('hidden')" class="px-4 py-1.5 text-xs text-gray-400">取消</button>
-                <button id="confirm-send-btn" class="px-4 py-1.5 text-xs bg-rose-500 text-white font-bold rounded">確定發送</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal 4: 編輯公告 (新增) -->
-    <div id="announcement-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-spCard border border-white/10 w-full max-w-md rounded-xl p-5">
-            <h3 class="font-bold text-sm mb-1 text-indigo-400 flex items-center gap-2"><i class="fa-solid fa-bullhorn"></i> 編輯最新公告</h3>
-            <p class="text-xs text-gray-400 mb-4">請輸入要顯示給所有成員的公告內容（支援換行，留空則隱藏公告區塊）</p>
-            <textarea id="announcement-input" rows="5" class="w-full bg-spHover text-white text-xs px-3 py-2 rounded border border-white/10 mb-4 focus:outline-none focus:border-indigo-500 resize-none" placeholder="請輸入公告內容..."></textarea>
-            <div class="flex justify-end gap-2">
-                <button onclick="document.getElementById('announcement-modal').classList.add('hidden')" class="px-4 py-1.5 text-xs text-gray-400">取消</button>
-                <button onclick="saveAnnouncement()" class="px-4 py-1.5 text-xs bg-indigo-500 text-white font-bold rounded hover:bg-indigo-600 transition">儲存並發布</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const API_URL = 'https://script.google.com/macros/s/AKfycbz4iOOoBwhrTgn4nOLpG1dZxaVi7xMmRFO3qrxDsscvE3-dolLdQqJMkHzmovso7HqyfQ/exec'; 
-        const ADMIN_PASS = '273618';
-        
-        let state = {
-            members: [], months: [], announcement: '',
-            currMonth: '', activeTab: 'matrix', isAdmin: false,
-            editTarget: null, pendingMailTarget: null
-        };
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const d = new Date();
-            document.getElementById('today-date').innerText = `今日：${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-            fetchData();
-        });
-
-        // 網站內小視窗 Toast 通知
-        function showToast(msg, isSuccess = true) {
-            const toast = document.getElementById('toast');
-            const icon = document.getElementById('toast-icon');
-            document.getElementById('toast-msg').innerText = msg;
-            
-            icon.className = isSuccess ? "fa-solid fa-circle-check text-spGreen text-sm" : "fa-solid fa-circle-xmark text-rose-500 text-sm";
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 2500);
-        }
-
-        async function fetchData() {
-            setSyncStatus('同步中...', 'fa-spin fa-spinner', 'text-amber-400');
-            try {
-                const res = await fetch(API_URL, { redirect: 'follow' });
-                const data = await res.json();
-                state.members = data.members || [];
-                state.months = data.months || [];
-                state.announcement = data.announcement || ''; // 讀取公告內容
-                
-                if(!state.currMonth && state.months.length) state.currMonth = state.months[state.months.length-1];
-                updateMonthSelect();
-                renderData();
-                renderAnnouncement(); // 渲染公告
-                
-                setSyncStatus('已與 API 雲端同步', 'fa-cloud', 'text-emerald-400');
-                
-                setTimeout(() => {
-                    const scrollArea = document.getElementById('matrix-scroll');
-                    if(scrollArea) scrollArea.scrollLeft = scrollArea.scrollWidth;
-                }, 100);
-            } catch(e) {
-                setSyncStatus('連線失敗或資料格式錯誤', 'fa-cloud-offline', 'text-rose-400');
-                console.error(e);
-            }
-        }
-
-        function saveToAPI() {
-            setSyncStatus('儲存中...', 'fa-spin fa-spinner', 'text-amber-400');
-            fetch(API_URL, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                redirect: 'follow', 
-                // 將 announcement 也加入 payload 中回傳給 Google Apps Script
-                body: JSON.stringify({ members: state.members, months: state.months, announcement: state.announcement }) 
-            })
-            .then(() => {
-                setSyncStatus('已與 API 雲端同步', 'fa-cloud', 'text-emerald-400');
-                showToast('資料已成功變更並儲存');
-            })
-            .catch(() => {
-                setSyncStatus('儲存失敗', 'fa-triangle-exclamation', 'text-rose-400');
-                showToast('寫入後端失敗', false);
-            });
-        }
-
-        // --- 公告相關功能 ---
-        function renderAnnouncement() {
-            const sec = document.getElementById('announcement-section');
-            const textEl = document.getElementById('announcement-text');
-            const btnEdit = document.getElementById('btn-edit-announcement');
-
-            // 判斷是否顯示公告區塊 (有公告內容，或身為管理員時皆顯示)
-            if (state.announcement || state.isAdmin) {
-                sec.classList.remove('hidden');
-                textEl.innerText = state.announcement || '目前無公告。';
-            } else {
-                sec.classList.add('hidden');
-            }
-
-            // 判斷是否顯示編輯按鈕
-            if (state.isAdmin) {
-                btnEdit.classList.remove('hidden');
-            } else {
-                btnEdit.classList.add('hidden');
-            }
-        }
-
-        function openAnnouncementEdit() {
-            if(!state.isAdmin) return showToast('請先登入管理員身分', false);
-            document.getElementById('announcement-input').value = state.announcement;
-            document.getElementById('announcement-modal').classList.remove('hidden');
-        }
-
-        function saveAnnouncement() {
-            state.announcement = document.getElementById('announcement-input').value.trim();
-            document.getElementById('announcement-modal').classList.add('hidden');
-            renderAnnouncement();
-            saveToAPI();
-            showToast('公告已更新');
-        }
-        // --------------------
-
-        // 觸發手動發信（包含管理員權限保護機制）
-        function askSendEmail(email, name, month) {
-            if (!state.isAdmin) {
-                showToast('請先登入管理員身分才能發送催繳信', false);
-                return;
-            }
-
-            state.pendingMailTarget = { email, name, month };
-            document.getElementById('confirm-mail-msg').innerHTML = `確定要發送催繳信給 <span class="text-spGreen font-bold">${name}</span> (${email}) 嗎？`;
-            document.getElementById('confirm-send-btn').onclick = executeSendEmail;
-            document.getElementById('confirm-mail-modal').classList.remove('hidden');
-        }
-
-        // 執行手動發送信件
-        function executeSendEmail() {
-            document.getElementById('confirm-mail-modal').classList.add('hidden');
-            if(!state.pendingMailTarget) return;
-
-            const { email, name, month } = state.pendingMailTarget;
-            const btn = document.getElementById(`btn-mail-${email}`);
-            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 發送中...`;
-            btn.disabled = true;
-
-            const payload = {
-                action: 'send_manual_email',
-                to: email,
-                subject: `【繳費提醒】記得繳交${month} 月份 Spotify 費用`,
-                body: `嗨 ${name}，\n 你尚未繳交本月份(${month} )Spotify訂閱費，請記得將50元繳交給我喔！感謝\n\n繳費紀錄查詢：https://spotify-family-payment.henrywang06180.workers.dev/\n*如繳費紀錄登記有誤請告知我更正\n========================================================\n\n此信件由spotify繳費提醒系統寄出，請勿直接回覆。\nspotify繳費提醒系統 By浚穠`
-            };
-
-            fetch(API_URL, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                redirect: 'follow', 
-                body: JSON.stringify(payload) 
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    btn.innerHTML = `<i class="fa-solid fa-check"></i> 已發送`;
-                    btn.className = "px-3 py-1.5 text-[11px] rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-                    showToast(`催繳信件已成功發送給 ${name}`);
-                } else throw new Error(data.error);
-            }).catch(err => {
-                btn.innerHTML = `<i class="fa-solid fa-xmark"></i> 發送失敗`;
-                btn.className = "px-3 py-1.5 text-[11px] rounded bg-rose-500/20 text-rose-400 border border-rose-500/30";
-                btn.disabled = false;
-                showToast(`發送失敗: ${err.message || '連線錯誤'}`, false);
-            });
-        }
-
-        function setSyncStatus(text, icon, colorClass) {
-            const el = document.getElementById('sync-status');
-            el.className = colorClass;
-            el.innerHTML = `<i class="fa-solid ${icon}"></i> ${text}`;
-        }
-
-        function updateMonthSelect() {
-            const sel = document.getElementById('month-select');
-            sel.innerHTML = state.months.map(m => `<option value="${m}" ${m===state.currMonth?'selected':''}>${m}</option>`).join('');
-            document.querySelectorAll('.current-month-label').forEach(el => el.innerText = state.currMonth);
-        }
-
-        function changeMonth() {
-            state.currMonth = document.getElementById('month-select').value;
-            document.querySelectorAll('.current-month-label').forEach(el => el.innerText = state.currMonth);
-            renderData();
-        }
-
-        function switchTab(tab) {
-            state.activeTab = tab;
-            ['matrix', 'cards', 'reminder'].forEach(t => {
-                document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
-                const btn = document.getElementById(`tab-${t}`);
-                if(t === tab) btn.className = "px-3 py-1 text-xs rounded-md bg-spGreen text-black font-bold flex items-center gap-1.5 transition";
-                else btn.className = "px-3 py-1 text-xs rounded-md text-gray-400 hover:text-white transition flex items-center gap-1.5";
-            });
-        }
-
-        function getStatusInfo(val) {
-            if(!val) return { text: '未填', cls: 'badge-na', type: 'unpaid' };
-            if(val.includes('X') || val.includes('x')) return { text: val, cls: 'badge-na', type: 'na' };
-            if(val.includes('缺') || val.includes('未')) return { text: val, cls: 'badge-unpaid', type: 'unpaid' };
-            return { text: val, cls: 'badge-paid', type: 'paid' };
-        }
-
-        function renderData() {
-            const keyword = document.getElementById('search').value.toLowerCase();
-            const filtered = state.members.filter(m => m.name.toLowerCase().includes(keyword) || (m.email && m.email.toLowerCase().includes(keyword)));
-            
-            let stats = { paid: 0, unpaid: 0, na: 0, unpaidNames: [] };
-            
-            const theadMonths = document.getElementById('th-months-placeholder');
-            theadMonths.outerHTML = state.months.map(m => `<th class="p-3 text-center min-w-[90px] ${m===state.currMonth ? 'bg-white/5' : ''}">${m}</th>`).join('');
-
-            const tbody = document.getElementById('matrix-body');
-            tbody.innerHTML = '';
-            
-            const cards = document.getElementById('view-cards');
-            cards.innerHTML = '';
-
-            const reminderList = document.getElementById('reminder-list');
-            reminderList.innerHTML = '';
-
-            filtered.forEach(m => {
-                const currVal = m.records[state.currMonth] || '';
-                const sInfo = getStatusInfo(currVal);
-                
-                if(sInfo.type === 'paid') stats.paid++;
-                else if(sInfo.type === 'unpaid') { stats.unpaid++; stats.unpaidNames.push(m.name); }
-                else stats.na++;
-
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-white/5 transition group";
-                let rowHTML = `<td class="p-3 sticky-col flex items-center gap-2"><div class="w-6 h-6 rounded-full bg-spHover text-spGreen flex items-center justify-center font-bold text-[10px]">${m.name[0]}</div> ${m.name}</td>`;
-                rowHTML += `<td class="p-3 border-r border-white/5 text-gray-400"><i class="fa-regular fa-envelope mr-1"></i> ${m.email || '無信箱'}</td>`;
-                
-                state.months.forEach(mo => {
-                    const vInfo = getStatusInfo(m.records[mo]);
-                    rowHTML += `<td class="p-3 text-center ${mo===state.currMonth ? 'bg-white/5' : ''}"><span class="px-2 py-0.5 rounded-full text-[10px] flex inline-flex items-center gap-1 w-fit mx-auto ${vInfo.cls}"><i class="fa-solid ${vInfo.type==='paid'?'fa-check':(vInfo.type==='unpaid'?'fa-circle-exclamation':'fa-minus')}"></i> ${vInfo.text}</span></td>`;
-                });
-                
-                rowHTML += `<td class="p-3 text-center bg-spCard sticky right-0 shadow-[-5px_0_10px_rgba(0,0,0,0.5)]"><button onclick="openEdit('${m.id}')" class="${state.isAdmin ? 'text-spGreen hover:bg-white/10' : 'text-gray-600'} p-1.5 rounded transition"><i class="fa-solid fa-pen"></i></button></td>`;
-                tr.innerHTML = rowHTML;
-                tbody.appendChild(tr);
-
-                cards.innerHTML += `
-                    <div class="bg-spCard p-4 rounded-xl border border-white/5 flex justify-between items-center">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-spHover text-spGreen flex items-center justify-center font-bold">${m.name[0]}</div>
-                            <div>
-                                <div class="font-bold">${m.name}</div>
-                                <div class="text-[10px] text-gray-400">${m.email || '無信箱'}</div>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <span class="px-2 py-1 rounded-md text-[10px] ${sInfo.cls}">${sInfo.text}</span>
-                            ${state.isAdmin ? `<button onclick="openEdit('${m.id}')" class="ml-2 text-gray-500"><i class="fa-solid fa-pen"></i></button>` : ''}
-                        </div>
-                    </div>`;
-
-                if(sInfo.type === 'unpaid' && m.email) {
-                    const btnStyle = state.isAdmin 
-                        ? "bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30" 
-                        : "bg-gray-800 text-gray-500 border-gray-700 hover:bg-gray-700/50";
-
-                    reminderList.innerHTML += `
-                        <div class="flex justify-between items-center bg-rose-500/10 border border-rose-500/20 p-3 rounded-lg">
-                            <div><span class="font-bold text-rose-200">${m.name}</span> <span class="text-xs text-rose-400/80">(${m.email})</span></div>
-                            <button id="btn-mail-${m.email}" onclick="askSendEmail('${m.email}', '${m.name}', '${state.currMonth}')" class="px-3 py-1.5 text-[11px] rounded border transition flex items-center gap-1.5 ${btnStyle}">
-                                <i class="fa-solid ${state.isAdmin ? 'fa-envelope' : 'fa-lock'}"></i> 發送催繳信
-                            </button>
-                        </div>`;
-                }
-            });
-
-            document.getElementById('stat-total').innerText = filtered.length;
-            document.getElementById('stat-paid').innerText = stats.paid;
-            document.getElementById('stat-unpaid').innerText = stats.unpaid;
-            document.getElementById('stat-na').innerText = stats.na;
-            
-            const tgt = stats.paid + stats.unpaid;
-            document.getElementById('stat-paid-desc').innerText = `目標達成率 ${tgt ? Math.round(stats.paid/tgt*100) : 0}% (${stats.paid}/${tgt})`;
-            
-            if(stats.unpaid > 0) {
-                document.getElementById('unpaid-alert').classList.remove('hidden');
-                document.getElementById('alert-title').innerText = `${state.currMonth} 期有 ${stats.unpaid} 位成員尚未完成繳費！`;
-                document.getElementById('alert-desc').innerText = `未繳成員：${stats.unpaidNames.join(', ')}。點擊右側按鈕處理。`;
-                document.getElementById('stat-unpaid-names').innerText = `待催繳: ${stats.unpaidNames.join(', ')}`;
-                document.getElementById('reminder-dot').classList.remove('hidden');
-            } else {
-                document.getElementById('unpaid-alert').classList.add('hidden');
-                document.getElementById('stat-unpaid-names').innerText = '無欠繳';
-                document.getElementById('reminder-dot').classList.add('hidden');
-                if(reminderList.innerHTML === '') reminderList.innerHTML = '<div class="text-xs text-gray-500">本期大家都很棒，沒有需要催繳的成員！</div>';
-            }
-        }
-
-        // 管理員切換邏輯
-        function toggleAdmin() {
-            if(state.isAdmin) {
-                state.isAdmin = false;
-                document.getElementById('admin-text').innerText = '管理員登入';
-                document.getElementById('admin-icon').className = 'fa-solid fa-lock';
-                document.getElementById('admin-btn').className = "bg-amber-600/20 text-amber-500 border border-amber-600/50 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 transition hover:bg-amber-600/30";
-                showToast('已登出管理員身分');
-                renderData();
-                renderAnnouncement(); // 刷新公告按鈕狀態
-            } else {
-                document.getElementById('admin-pass-input').value = '';
-                document.getElementById('admin-modal').classList.remove('hidden');
-                setTimeout(() => document.getElementById('admin-pass-input').focus(), 100);
-            }
-        }
-
-        function verifyAdminPass() {
-            const pass = document.getElementById('admin-pass-input').value;
-            if(pass === ADMIN_PASS) {
-                state.isAdmin = true;
-                document.getElementById('admin-modal').classList.add('hidden');
-                document.getElementById('admin-text').innerText = '已解鎖';
-                document.getElementById('admin-icon').className = 'fa-solid fa-unlock';
-                document.getElementById('admin-btn').className = "bg-spGreen/20 text-spGreen border border-spGreen/50 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2";
-                showToast('管理員權限已解鎖（已開啟編輯與發信功能）');
-                renderData();
-                renderAnnouncement(); // 刷新公告按鈕狀態
-            } else {
-                showToast('密碼錯誤，請重新輸入', false);
-            }
-        }
-
-        function openEdit(id) {
-            if(!state.isAdmin) return showToast('請先登入管理員身分', false);
-            state.editTarget = state.members.find(m => m.id === id);
-            document.getElementById('modal-title').innerText = `編輯狀態 - ${state.editTarget.name}`;
-            document.getElementById('modal-subtitle').innerText = `期數: ${state.currMonth}`;
-            document.getElementById('modal-input').value = state.editTarget.records[state.currMonth] || '';
-            document.getElementById('edit-modal').classList.remove('hidden');
-        }
-
-        function setModalVal(val) { document.getElementById('modal-input').value = val; saveEdit(); }
-        
-        function saveEdit() {
-            state.editTarget.records[state.currMonth] = document.getElementById('modal-input').value;
-            document.getElementById('edit-modal').classList.add('hidden');
-            renderData();
-            saveToAPI();
-        }
-    </script>
-</body>
-</html>
+// ================= 處理 POST (寫入資料與手動寄信) =================
+function doPost(e) {
+  try {
+    const payload = JSON.parse(e.postData.contents);
+    
+    // 手動寄信
+    if (payload.action === 'send_manual
