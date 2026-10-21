@@ -66,6 +66,23 @@
         </div>
     </header>
 
+    <!-- 公告區塊 (預設隱藏，有公告或管理員登入時顯示) -->
+    <div id="announcement-section" class="hidden bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-4 mb-4 flex justify-between items-center transition-all">
+        <div class="flex items-start gap-3 w-full">
+            <div class="w-8 h-8 shrink-0 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center mt-0.5"><i class="fa-solid fa-bullhorn"></i></div>
+            <div class="w-full">
+                <div class="font-bold text-indigo-200 flex justify-between items-center">
+                    <span>最新公告</span>
+                    <button id="btn-edit-announcement" onclick="openAnnouncementEdit()" class="hidden bg-indigo-500/20 text-indigo-200 border border-indigo-500/50 px-3 py-1 rounded-lg text-xs hover:bg-indigo-500/30 transition">
+                        <i class="fa-solid fa-pen mr-1"></i> 編輯公告
+                    </button>
+                </div>
+                <div class="text-xs text-indigo-100/80 mt-1 whitespace-pre-wrap leading-relaxed" id="announcement-text">目前無公告。</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 欠繳提示區塊 -->
     <div id="unpaid-alert" class="hidden bg-rose-500/10 border border-rose-500/30 rounded-xl p-4 mb-6 flex justify-between items-center">
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center"><i class="fa-solid fa-circle-exclamation"></i></div>
@@ -79,6 +96,7 @@
         </button>
     </div>
 
+    <!-- 統計數據卡片 -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-spCard p-4 rounded-xl border border-white/5 relative">
             <i class="fa-solid fa-user-group absolute top-4 right-4 text-spGreen/50 text-xl"></i>
@@ -106,6 +124,7 @@
         </div>
     </div>
 
+    <!-- 搜尋與頁籤控制器 -->
     <div class="flex flex-col md:flex-row justify-between gap-4 mb-4 bg-spCard p-2 rounded-xl border border-white/5">
         <div class="relative flex-1 max-w-md">
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
@@ -125,6 +144,7 @@
         </div>
     </div>
 
+    <!-- 檢視：全覽矩陣 -->
     <div id="view-matrix" class="bg-spCard rounded-xl border border-white/5 overflow-hidden">
         <div class="table-container hide-scrollbar" id="matrix-scroll">
             <table class="w-full text-left text-xs">
@@ -147,14 +167,16 @@
         </div>
     </div>
 
+    <!-- 檢視：卡片模式 -->
     <div id="view-cards" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
 
+    <!-- 檢視：催繳助手 -->
     <div id="view-reminder" class="hidden bg-spCard rounded-xl border border-white/5 p-5">
         <h3 class="font-bold text-rose-400 mb-4 flex items-center gap-2"><i class="fa-solid fa-paper-plane"></i> 催繳信件手動發送</h3>
         <div id="reminder-list" class="space-y-3"></div>
     </div>
 
-    <!-- 1. 編輯狀態 Modal -->
+    <!-- Modal 1: 編輯繳費狀態 -->
     <div id="edit-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
             <h3 class="font-bold text-sm mb-1" id="modal-title">編輯狀態</h3>
@@ -172,7 +194,7 @@
         </div>
     </div>
 
-    <!-- 2. 管理員登入 Modal (替代 prompt) -->
+    <!-- Modal 2: 管理員登入 -->
     <div id="admin-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
             <h3 class="font-bold text-sm mb-1 text-amber-400 flex items-center gap-2"><i class="fa-solid fa-lock"></i> 管理員登入</h3>
@@ -185,7 +207,7 @@
         </div>
     </div>
 
-    <!-- 3. 確認手動發送 Modal (替代 confirm) -->
+    <!-- Modal 3: 確認手動發送信件 -->
     <div id="confirm-mail-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
             <h3 class="font-bold text-sm mb-1 text-rose-400 flex items-center gap-2"><i class="fa-solid fa-envelope"></i> 確認發送催繳信件</h3>
@@ -197,12 +219,25 @@
         </div>
     </div>
 
+    <!-- Modal 4: 編輯公告 (新增) -->
+    <div id="announcement-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-spCard border border-white/10 w-full max-w-md rounded-xl p-5">
+            <h3 class="font-bold text-sm mb-1 text-indigo-400 flex items-center gap-2"><i class="fa-solid fa-bullhorn"></i> 編輯最新公告</h3>
+            <p class="text-xs text-gray-400 mb-4">請輸入要顯示給所有成員的公告內容（支援換行，留空則隱藏公告區塊）</p>
+            <textarea id="announcement-input" rows="5" class="w-full bg-spHover text-white text-xs px-3 py-2 rounded border border-white/10 mb-4 focus:outline-none focus:border-indigo-500 resize-none" placeholder="請輸入公告內容..."></textarea>
+            <div class="flex justify-end gap-2">
+                <button onclick="document.getElementById('announcement-modal').classList.add('hidden')" class="px-4 py-1.5 text-xs text-gray-400">取消</button>
+                <button onclick="saveAnnouncement()" class="px-4 py-1.5 text-xs bg-indigo-500 text-white font-bold rounded hover:bg-indigo-600 transition">儲存並發布</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_URL = 'https://script.google.com/macros/s/AKfycbz4iOOoBwhrTgn4nOLpG1dZxaVi7xMmRFO3qrxDsscvE3-dolLdQqJMkHzmovso7HqyfQ/exec'; 
         const ADMIN_PASS = '273618';
         
         let state = {
-            members: [], months: [],
+            members: [], months: [], announcement: '',
             currMonth: '', activeTab: 'matrix', isAdmin: false,
             editTarget: null, pendingMailTarget: null
         };
@@ -213,7 +248,7 @@
             fetchData();
         });
 
-        // 網站內小視窗 Toast 通知 (替代所有 alert)
+        // 網站內小視窗 Toast 通知
         function showToast(msg, isSuccess = true) {
             const toast = document.getElementById('toast');
             const icon = document.getElementById('toast-icon');
@@ -231,9 +266,13 @@
                 const data = await res.json();
                 state.members = data.members || [];
                 state.months = data.months || [];
+                state.announcement = data.announcement || ''; // 讀取公告內容
+                
                 if(!state.currMonth && state.months.length) state.currMonth = state.months[state.months.length-1];
                 updateMonthSelect();
                 renderData();
+                renderAnnouncement(); // 渲染公告
+                
                 setSyncStatus('已與 API 雲端同步', 'fa-cloud', 'text-emerald-400');
                 
                 setTimeout(() => {
@@ -252,7 +291,8 @@
                 method: 'POST', 
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 redirect: 'follow', 
-                body: JSON.stringify({ members: state.members, months: state.months }) 
+                // 將 announcement 也加入 payload 中回傳給 Google Apps Script
+                body: JSON.stringify({ members: state.members, months: state.months, announcement: state.announcement }) 
             })
             .then(() => {
                 setSyncStatus('已與 API 雲端同步', 'fa-cloud', 'text-emerald-400');
@@ -264,9 +304,45 @@
             });
         }
 
+        // --- 公告相關功能 ---
+        function renderAnnouncement() {
+            const sec = document.getElementById('announcement-section');
+            const textEl = document.getElementById('announcement-text');
+            const btnEdit = document.getElementById('btn-edit-announcement');
+
+            // 判斷是否顯示公告區塊 (有公告內容，或身為管理員時皆顯示)
+            if (state.announcement || state.isAdmin) {
+                sec.classList.remove('hidden');
+                textEl.innerText = state.announcement || '目前無公告。';
+            } else {
+                sec.classList.add('hidden');
+            }
+
+            // 判斷是否顯示編輯按鈕
+            if (state.isAdmin) {
+                btnEdit.classList.remove('hidden');
+            } else {
+                btnEdit.classList.add('hidden');
+            }
+        }
+
+        function openAnnouncementEdit() {
+            if(!state.isAdmin) return showToast('請先登入管理員身分', false);
+            document.getElementById('announcement-input').value = state.announcement;
+            document.getElementById('announcement-modal').classList.remove('hidden');
+        }
+
+        function saveAnnouncement() {
+            state.announcement = document.getElementById('announcement-input').value.trim();
+            document.getElementById('announcement-modal').classList.add('hidden');
+            renderAnnouncement();
+            saveToAPI();
+            showToast('公告已更新');
+        }
+        // --------------------
+
         // 觸發手動發信（包含管理員權限保護機制）
         function askSendEmail(email, name, month) {
-            // 【權限檢查】若非管理員，顯示 Toast 並中斷操作
             if (!state.isAdmin) {
                 showToast('請先登入管理員身分才能發送催繳信', false);
                 return;
@@ -452,6 +528,7 @@
                 document.getElementById('admin-btn').className = "bg-amber-600/20 text-amber-500 border border-amber-600/50 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 transition hover:bg-amber-600/30";
                 showToast('已登出管理員身分');
                 renderData();
+                renderAnnouncement(); // 刷新公告按鈕狀態
             } else {
                 document.getElementById('admin-pass-input').value = '';
                 document.getElementById('admin-modal').classList.remove('hidden');
@@ -469,6 +546,7 @@
                 document.getElementById('admin-btn').className = "bg-spGreen/20 text-spGreen border border-spGreen/50 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2";
                 showToast('管理員權限已解鎖（已開啟編輯與發信功能）');
                 renderData();
+                renderAnnouncement(); // 刷新公告按鈕狀態
             } else {
                 showToast('密碼錯誤，請重新輸入', false);
             }
