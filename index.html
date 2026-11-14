@@ -36,7 +36,6 @@
 </head>
 <body class="min-h-screen flex flex-col p-2 md:p-6 text-sm relative">
 
-    <!-- 全局 網站內 Toast 訊息通知 -->
     <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 hidden transition-all duration-300 pointer-events-none">
         <div id="toast-body" class="bg-spCard/95 backdrop-blur border border-white/20 text-white text-xs px-5 py-3 rounded-full shadow-2xl flex items-center gap-2.5">
             <i id="toast-icon" class="fa-solid fa-circle-info text-spGreen text-sm"></i>
@@ -160,7 +159,8 @@
             <h3 class="font-bold text-sm mb-1" id="modal-title">編輯狀態</h3>
             <p class="text-xs text-gray-400 mb-4" id="modal-subtitle"></p>
             <div class="grid grid-cols-2 gap-2 mb-3">
-                <button onclick="setModalVal('已繳交')" class="py-2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs">已繳交</button>
+                <!-- 【已修正】點擊已繳交時呼叫新的 setPaidWithDate() -->
+                <button onclick="setPaidWithDate()" class="py-2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs">已繳交</button>
                 <button onclick="setModalVal('未繳交')" class="py-2 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs">未繳交</button>
                 <button onclick="setModalVal('X')" class="col-span-2 py-2 rounded bg-slate-800 text-slate-400 border border-slate-600 text-xs">免繳交 (X)</button>
             </div>
@@ -172,7 +172,7 @@
         </div>
     </div>
 
-    <!-- 2. 管理員登入 Modal (替代 prompt) -->
+    <!-- 2. 管理員登入 Modal -->
     <div id="admin-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
             <h3 class="font-bold text-sm mb-1 text-amber-400 flex items-center gap-2"><i class="fa-solid fa-lock"></i> 管理員登入</h3>
@@ -185,7 +185,7 @@
         </div>
     </div>
 
-    <!-- 3. 確認手動發送 Modal (替代 confirm) -->
+    <!-- 3. 確認手動發送 Modal -->
     <div id="confirm-mail-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-spCard border border-white/10 w-full max-w-sm rounded-xl p-5">
             <h3 class="font-bold text-sm mb-1 text-rose-400 flex items-center gap-2"><i class="fa-solid fa-envelope"></i> 確認發送催繳信件</h3>
@@ -213,7 +213,6 @@
             fetchData();
         });
 
-        // 網站內小視窗 Toast 通知 (替代所有 alert)
         function showToast(msg, isSuccess = true) {
             const toast = document.getElementById('toast');
             const icon = document.getElementById('toast-icon');
@@ -264,9 +263,7 @@
             });
         }
 
-        // 觸發手動發信（包含管理員權限保護機制）
         function askSendEmail(email, name, month) {
-            // 【權限檢查】若非管理員，顯示 Toast 並中斷操作
             if (!state.isAdmin) {
                 showToast('請先登入管理員身分才能發送催繳信', false);
                 return;
@@ -278,7 +275,6 @@
             document.getElementById('confirm-mail-modal').classList.remove('hidden');
         }
 
-        // 執行手動發送信件
         function executeSendEmail() {
             document.getElementById('confirm-mail-modal').classList.add('hidden');
             if(!state.pendingMailTarget) return;
@@ -358,7 +354,9 @@
             let stats = { paid: 0, unpaid: 0, na: 0, unpaidNames: [] };
             
             const theadMonths = document.getElementById('th-months-placeholder');
-            theadMonths.outerHTML = state.months.map(m => `<th class="p-3 text-center min-w-[90px] ${m===state.currMonth ? 'bg-white/5' : ''}">${m}</th>`).join('');
+            if (theadMonths) {
+                 theadMonths.outerHTML = state.months.map(m => `<th class="p-3 text-center min-w-[90px] ${m===state.currMonth ? 'bg-white/5' : ''}">${m}</th>`).join('');
+            }
 
             const tbody = document.getElementById('matrix-body');
             tbody.innerHTML = '';
@@ -443,7 +441,6 @@
             }
         }
 
-        // 管理員切換邏輯
         function toggleAdmin() {
             if(state.isAdmin) {
                 state.isAdmin = false;
@@ -483,7 +480,19 @@
             document.getElementById('edit-modal').classList.remove('hidden');
         }
 
+        // 原本手動輸入或點擊「未繳交」、「X」的函數
         function setModalVal(val) { document.getElementById('modal-input').value = val; saveEdit(); }
+
+        // 【新增函數】專門處理點擊「已繳交」按鈕時，自動附上今天的日期
+        function setPaidWithDate() {
+            const date = new Date();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const dateString = `${month}/${day}`; // 格式為 MM/DD
+            
+            document.getElementById('modal-input').value = `已繳交${dateString}`;
+            saveEdit();
+        }
         
         function saveEdit() {
             state.editTarget.records[state.currMonth] = document.getElementById('modal-input').value;
