@@ -59,7 +59,7 @@
             <button onclick="toggleAdmin()" id="admin-btn" class="bg-amber-600/20 text-amber-500 border border-amber-600/50 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 transition hover:bg-amber-600/30">
                 <i class="fa-solid fa-lock" id="admin-icon"></i> <span id="admin-text">管理員登入</span>
             </button>
-            <button class="bg-white/10 text-white px-4 py-1.5 rounded-full text-xs hover:bg-white/20 transition flex items-center gap-2">
+            <button onclick="exportCSV()" class="bg-white/10 text-white px-4 py-1.5 rounded-full text-xs hover:bg-white/20 transition flex items-center gap-2">
                 <i class="fa-solid fa-file-csv text-spGreen"></i> 匯出 CSV
             </button>
         </div>
@@ -159,7 +159,6 @@
             <h3 class="font-bold text-sm mb-1" id="modal-title">編輯狀態</h3>
             <p class="text-xs text-gray-400 mb-4" id="modal-subtitle"></p>
             <div class="grid grid-cols-2 gap-2 mb-3">
-                <!-- 【已修正】點擊已繳交時呼叫新的 setPaidWithDate() -->
                 <button onclick="setPaidWithDate()" class="py-2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs">已繳交</button>
                 <button onclick="setModalVal('未繳交')" class="py-2 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs">未繳交</button>
                 <button onclick="setModalVal('X')" class="col-span-2 py-2 rounded bg-slate-800 text-slate-400 border border-slate-600 text-xs">免繳交 (X)</button>
@@ -480,15 +479,13 @@
             document.getElementById('edit-modal').classList.remove('hidden');
         }
 
-        // 原本手動輸入或點擊「未繳交」、「X」的函數
         function setModalVal(val) { document.getElementById('modal-input').value = val; saveEdit(); }
 
-        // 【新增函數】專門處理點擊「已繳交」按鈕時，自動附上今天的日期
         function setPaidWithDate() {
             const date = new Date();
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
-            const dateString = `${month}/${day}`; // 格式為 MM/DD
+            const dateString = `${month}/${day}`;
             
             document.getElementById('modal-input').value = `已繳交${dateString}`;
             saveEdit();
@@ -499,6 +496,33 @@
             document.getElementById('edit-modal').classList.add('hidden');
             renderData();
             saveToAPI();
+        }
+
+        // ================= 新增：匯出 CSV 功能 =================
+        function exportCSV() {
+            if (state.members.length === 0) return showToast('沒有資料可匯出', false);
+            
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+            
+            let header = ["成員姓名", "Email", ...state.months];
+            csvContent += header.join(",") + "\n";
+            
+            state.members.forEach(m => {
+                let row = [m.name, m.email || ''];
+                state.months.forEach(mo => {
+                    row.push(m.records[mo] || '');
+                });
+                csvContent += row.join(",") + "\n";
+            });
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Spotify_繳費紀錄_${new Date().getTime()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('已成功匯出 CSV 檔');
         }
     </script>
 </body>
